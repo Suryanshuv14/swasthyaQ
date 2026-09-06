@@ -33,9 +33,14 @@ repositories {
 configurations.all {
     resolutionStrategy {
         eachDependency { DependencyResolveDetails details ->
+            if (details.requested.group == 'org.jetbrains.kotlinx' && details.requested.name.startsWith('kotlinx-coroutines')) {
+                details.useVersion(rootProject.ext.kotlinxCoroutinesVersion)
+                details.because("Upgrade coroutines to ${rootProject.ext.kotlinxCoroutinesVersion} to eliminate transitive kotlin-stdlib-jdk7/jdk8:1.6.21")
+            }
             if (details.requested.group == 'org.jetbrains.kotlin') {
                 if (details.requested.name == 'kotlin-stdlib-jdk7' || details.requested.name == 'kotlin-stdlib-jdk8') {
-                    details.useTarget("org.jetbrains.kotlin:kotlin-stdlib:${rootProject.ext.kotlin_version}")
+                    details.useVersion(rootProject.ext.kotlin_version)
+                    details.because("Align Kotlin stdlib-jdk7/jdk8 to ${rootProject.ext.kotlin_version}")
                 }
             }
         }
@@ -44,14 +49,26 @@ configurations.all {
 
 dependencies {
     implementation platform("org.jetbrains.kotlin:kotlin-bom:${rootProject.ext.kotlin_version}")
+    implementation platform("org.jetbrains.kotlinx:kotlinx-coroutines-bom:${rootProject.ext.kotlinxCoroutinesVersion}")
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib"
+
     constraints {
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:${rootProject.ext.kotlinxCoroutinesVersion}") {
+            because("Upgrade kotlinx-coroutines to ${rootProject.ext.kotlinxCoroutinesVersion}")
+        }
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:${rootProject.ext.kotlinxCoroutinesVersion}") {
+            because("Upgrade kotlinx-coroutines to ${rootProject.ext.kotlinxCoroutinesVersion}")
+        }
         implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:${rootProject.ext.kotlin_version}") {
-            because("Align all Kotlin standard library modules to 1.8.22 to eliminate duplicate classes")
+            because("Align Kotlin stdlib-jdk7 to ${rootProject.ext.kotlin_version}")
         }
         implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${rootProject.ext.kotlin_version}") {
-            because("Align all Kotlin standard library modules to 1.8.22 to eliminate duplicate classes")
+            because("Align Kotlin stdlib-jdk8 to ${rootProject.ext.kotlin_version}")
         }
     }
+
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
