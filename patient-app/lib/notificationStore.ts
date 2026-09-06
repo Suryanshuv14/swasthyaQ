@@ -9,7 +9,12 @@ import { AppointmentRecord } from './appointmentStore'
 
 export interface PatientNotification {
   id: string
-  type: 'appointment_confirmed' | 'token_update' | 'prescription_available' | 'health_announcement'
+  type:
+    | 'appointment_confirmed'
+    | 'appointment_reminder'
+    | 'token_update'
+    | 'prescription_available'
+    | 'health_announcement'
   timestamp: number
   timeAgoHi: string
   timeAgoEn: string
