@@ -5,34 +5,36 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { BrandLogo } from '@/components/patient/brand-logo'
 import { useSpeak } from '@/hooks/useSpeak'
+import { useLanguage } from '@/hooks/useLanguage'
 import { AudioFeedbackToast } from '@/components/patient/audio-feedback-toast'
 
 interface ConfirmedAppointment {
   tokenNumber: string
   doctorName: string
-  room: string
-  slotTime: string
+  facility: string
+  date: string
+  time: string
   patientName: string
-  abhaId: string
-  symptoms?: string[]
-  symptomCategory?: string
-  confirmedAt?: string
+  status: string
 }
 
 export default function AppointmentConfirmedPage() {
   const router = useRouter()
-  const { speak, isSpeaking } = useSpeak()
+  const { speak } = useSpeak()
+  const { lang, t } = useLanguage()
+  const isHindi = lang === 'hi'
+
   const [toastVisible, setToastVisible] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
 
   const [appointment, setAppointment] = useState<ConfirmedAppointment>({
-    tokenNumber: 'OPD-402',
-    doctorName: 'डॉ. रमेश कपूर (Dr. Ramesh Kapoor)',
-    room: 'कमरा नंबर २ (Room No. 2)',
-    slotTime: 'आज सुबह 11:30 बजे (Today, 11:30 AM)',
-    patientName: 'सुनीता देवी (Sunita Devi)',
-    abhaId: '94-8231-5612',
-    symptoms: ['तेज बुखार', 'सूखी खांसी'],
+    tokenNumber: '#A104',
+    doctorName: 'Dr. Ananya Kapoor',
+    facility: 'PHC North',
+    date: '8 September 2026',
+    time: '10:30 AM',
+    patientName: isHindi ? 'सुनीता देवी' : 'Sunita Devi',
+    status: 'Confirmed',
   })
 
   useEffect(() => {
@@ -41,267 +43,157 @@ export default function AppointmentConfirmedPage() {
       if (stored) {
         try {
           const parsed = JSON.parse(stored)
-          setAppointment((prev) => ({ ...prev, ...parsed }))
+          setAppointment((prev) => ({
+            ...prev,
+            tokenNumber: parsed.tokenNumber.startsWith('#') ? parsed.tokenNumber : `#${parsed.tokenNumber}`,
+            doctorName: parsed.doctorName || prev.doctorName,
+            facility: parsed.facility || prev.facility,
+            date: parsed.date || prev.date,
+            time: parsed.time || parsed.slotTime || prev.time,
+            patientName: parsed.patientName || prev.patientName,
+          }))
         } catch (e) {}
       }
     }
   }, [])
 
-  // Auto pronounce token on mount
+  // Auto speak warm confirmation on mount
   useEffect(() => {
-    const text = `बधाई हो सुनीता जी! आपका टोकन नंबर है ${appointment.tokenNumber}। कृपया कमरा नंबर 3 पर डॉक्टर अनन्या रॉय से परामर्श के लिए उपस्थित रहें।`
-    speak(text, 'hi-IN')
-  }, [appointment.tokenNumber, speak])
+    const text = isHindi
+      ? `आपका अपॉइंटमेंट हो गया है। धन्यवाद। समय पर स्वास्थ्य केंद्र पहुँचें। आपका टोकन नंबर है ${appointment.tokenNumber}।`
+      : `Your appointment is booked. Thank you. Please arrive at the health centre on time. Your token number is ${appointment.tokenNumber}.`
+    speak(text, isHindi ? 'hi-IN' : 'en-IN')
+  }, [appointment.tokenNumber, speak, isHindi])
 
-  const handleListenToken = () => {
-    const text = `आपका टोकन नंबर है ${appointment.tokenNumber}। ${appointment.doctorName}, ${appointment.room}। समय ${appointment.slotTime}।`
+  const handleListenDetails = () => {
+    const text = isHindi
+      ? `टोकन ${appointment.tokenNumber}। तारीख ${appointment.date}, समय ${appointment.time}। ${appointment.facility}। मरीज ${appointment.patientName}।`
+      : `Token ${appointment.tokenNumber}. Date ${appointment.date}, time ${appointment.time}. Facility ${appointment.facility}. Patient ${appointment.patientName}.`
     setToastMsg(text)
     setToastVisible(true)
-    speak(text, 'hi-IN')
-    setTimeout(() => setToastVisible(false), 3500)
-  }
-
-  const handleShare = () => {
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      navigator.share({
-        title: `SwasthyaQ Appointment: ${appointment.tokenNumber}`,
-        text: `SwasthyaQ Tele-Clinic Token: ${appointment.tokenNumber} for ${appointment.patientName} with ${appointment.doctorName}. Room: ${appointment.room}`,
-      }).catch(() => {})
-    } else {
-      setToastMsg('पर्ची का लिंक कॉपी हो गया (Link Copied)')
-      setToastVisible(true)
-      setTimeout(() => setToastVisible(false), 2500)
-    }
-  }
-
-  const handleSave = () => {
-    setToastMsg('डिजिटल टोकन पर्ची सहेज ली गई (Slip Saved)')
-    setToastVisible(true)
-    setTimeout(() => setToastVisible(false), 2500)
+    speak(text, isHindi ? 'hi-IN' : 'en-IN')
+    setTimeout(() => setToastVisible(false), 3800)
   }
 
   return (
-    <main className="flex flex-col relative w-full pt-16 pb-safe bg-surface min-h-screen">
+    <main className="flex flex-col relative w-full pt-16 pb-safe bg-surface min-h-screen font-body">
       {/* Top Header */}
       <header className="fixed top-0 left-0 right-0 w-full z-50 bg-surface/90 backdrop-blur-xl border-b border-outline-variant/30 pt-safe">
         <div className="max-w-md mx-auto h-16 px-margin-screen flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href="/home"
-              aria-label="Go home"
+              aria-label={t.backToHomeBtn}
               className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface active:scale-90 transition-transform"
             >
               <span className="material-symbols-outlined text-[24px]">home</span>
             </Link>
             <div className="flex items-center gap-2">
               <BrandLogo size={32} className="w-8 h-8" />
-              <h1 className="font-headline-md text-[17px] text-on-surface font-bold">
-                Book Token
+              <h1 className="font-headline-md text-base text-on-surface font-bold">
+                {t.appName}
               </h1>
             </div>
           </div>
 
-          <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary font-bold text-xs flex items-center justify-center ring-2 ring-primary-container/20">
-            SD
-          </div>
+          <button
+            onClick={handleListenDetails}
+            aria-label={t.listenTokenAudio}
+            className="w-10 h-10 rounded-full bg-tertiary-container text-on-tertiary flex items-center justify-center active:scale-90 transition-transform"
+            type="button"
+          >
+            <span className="material-symbols-outlined text-[22px] text-tertiary">volume_up</span>
+          </button>
         </div>
       </header>
 
       {/* Audio Feedback Toast */}
       <AudioFeedbackToast visible={toastVisible} message={toastMsg} />
 
-      <div className="flex flex-col w-full px-margin-screen pb-12 gap-stack-gap-md max-w-md mx-auto pt-3">
-        {/* Success Celebration & Header Badge */}
-        <div className="flex flex-col items-center justify-center pt-3 pb-2 text-center">
-          <div className="relative flex items-center justify-center w-18 h-18 rounded-full bg-tertiary shadow-md mb-2">
-            <span
-              className="material-symbols-outlined text-on-tertiary text-[40px]"
-              style={{ fontVariationSettings: "'FILL' 1, 'wght' 700" }}
-            >
-              check
-            </span>
-            {/* Decorative pulse ring */}
-            <span className="absolute -inset-1.5 rounded-full bg-tertiary-fixed opacity-40 animate-ping pointer-events-none" />
+      <div className="flex flex-col w-full max-w-md mx-auto px-margin-screen pb-12 gap-5 pt-4">
+        {/* Success Icon & Header */}
+        <div className="flex flex-col items-center text-center mt-2">
+          <div className="w-20 h-20 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 mb-3">
+            <span className="material-symbols-outlined text-5xl font-black">check</span>
           </div>
-          <h2 className="font-headline-lg text-[22px] text-on-surface font-bold tracking-tight">
-            आपका नंबर लग गया है!
+          <h2 className="font-display-lg-mobile text-2xl font-black text-on-surface">
+            {t.appointmentSuccessTitle}
           </h2>
-          <p className="font-body-md text-[14px] text-on-surface-variant mt-0.5">
-            Appointment Confirmed Successfully
+          <p className="text-xs text-secondary font-medium mt-1">
+            {t.appointmentSuccessSubtitle}
           </p>
         </div>
 
-        {/* Centerpiece: Token Placard Card */}
-        <div className="bg-surface-container-lowest rounded-2xl shadow-md overflow-hidden flex flex-col border border-outline-variant/30">
-          {/* Token Top Highlight Header */}
-          <div className="bg-primary-container px-card-padding py-3 flex items-center justify-between text-on-primary">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[24px]">confirmation_number</span>
-              <span className="font-label-action text-[15px] uppercase tracking-wide font-bold">
-                टोकन संख्या / Token No.
-              </span>
-            </div>
-            <span className="bg-primary px-3 py-0.5 rounded-full font-label-supporting text-[12px] text-on-primary font-bold">
-              Live
-            </span>
-          </div>
-
-          {/* Token Big Display */}
-          <div className="px-card-padding py-6 flex flex-col items-center justify-center bg-surface-container-lowest text-center">
-            <div className="inline-flex items-baseline justify-center gap-1">
-              <span className="font-queue-token text-[48px] text-primary font-extrabold tracking-tight">
-                {appointment.tokenNumber}
-              </span>
-            </div>
-            <p className="font-label-supporting text-[14px] text-on-surface-variant mt-1 font-semibold">
-              {appointment.room}
-            </p>
-
-            {/* Audio Guidance Button for Token Readout */}
-            <button
-              onClick={handleListenToken}
-              className="mt-4 w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-tertiary hover:bg-tertiary/90 text-on-tertiary font-label-supporting text-[14px] font-bold active:scale-[0.98] transition-transform shadow-xs cursor-pointer"
-              type="button"
-            >
-              <span
-                className="material-symbols-outlined text-[22px]"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                volume_up
-              </span>
-              <span>{isSpeaking ? '🔊 टोकन सुनाया जा रहा है...' : '🔊 टोकन नंबर सुनें (Listen to token)'}</span>
-            </button>
-          </div>
-
-          {/* Live Waiting Estimate Strip */}
-          <div className="bg-surface-container px-card-padding py-3 flex items-center gap-3 border-t border-outline-variant/30">
-            <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-primary text-[22px]">
-                hourglass_top
-              </span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-label-supporting text-[13px] text-on-surface font-bold truncate">
-                अनुमानित प्रतीक्षा: ~10 मिनट
-              </p>
-              <p className="font-body-md text-[12px] text-on-surface-variant truncate">
-                Estimated wait: 2 patients ahead
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Key Consultation Details Mosaic */}
-        <div className="flex flex-col gap-stack-gap-sm">
-          <h3 className="font-label-supporting text-[12px] text-on-surface-variant uppercase px-1 tracking-wider font-bold">
-            परामर्श विवरण (Consultation Details)
-          </h3>
-
-          {/* Doctor Detail Card */}
-          <div className="bg-surface-container-lowest rounded-xl p-card-padding shadow-xs flex items-center gap-3.5 border border-outline-variant/30">
-            <div className="w-11 h-11 rounded-xl bg-primary-fixed flex items-center justify-center shrink-0 text-primary">
-              <span className="material-symbols-outlined text-[26px]">stethoscope</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-label-supporting text-[11px] text-secondary font-semibold">
-                डॉक्टर / Doctor
-              </p>
-              <p className="font-headline-md text-[15px] text-on-surface font-bold truncate">
-                {appointment.doctorName}
-              </p>
-              <p className="font-body-md text-[12px] text-on-surface-variant truncate">
-                General Medicine • PHC Room 03
-              </p>
-            </div>
-          </div>
-
-          {/* Clinic Detail Card */}
-          <div className="bg-surface-container-lowest rounded-xl p-card-padding shadow-xs flex items-center gap-3.5 border border-outline-variant/30">
-            <div className="w-11 h-11 rounded-xl bg-secondary-fixed flex items-center justify-center shrink-0 text-secondary">
-              <span className="material-symbols-outlined text-[26px]">local_hospital</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-label-supporting text-[11px] text-secondary font-semibold">
-                स्वास्थ्य केंद्र / Health Center
-              </p>
-              <p className="font-headline-md text-[15px] text-on-surface font-bold truncate">
-                प्राथमिक स्वास्थ्य केंद्र, रामनगर
-              </p>
-              <p className="font-body-md text-[12px] text-on-surface-variant truncate">
-                PHC Ramnagar Tele-Clinic
-              </p>
-            </div>
-          </div>
-
-          {/* Time & Date Card */}
-          <div className="bg-surface-container-lowest rounded-xl p-card-padding shadow-xs flex items-center gap-3.5 border border-outline-variant/30">
-            <div className="w-11 h-11 rounded-xl bg-surface-variant flex items-center justify-center shrink-0 text-primary-container">
-              <span className="material-symbols-outlined text-[26px]">event_available</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-label-supporting text-[11px] text-secondary font-semibold">
-                तारीख एवं समय / Date &amp; Time
-              </p>
-              <p className="font-headline-md text-[15px] text-on-surface font-bold truncate">
-                {appointment.slotTime}
-              </p>
-              <p className="font-body-md text-[12px] text-on-surface-variant truncate">
-                Live Queue Slot Confirmed
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Help Notice Banner */}
-        <div className="bg-surface-container-high rounded-xl p-3.5 flex items-start gap-3 border border-outline-variant/30">
-          <span className="material-symbols-outlined text-primary text-[24px] shrink-0 mt-0.5">
-            sms
+        {/* Big Clean Token Card */}
+        <div className="w-full bg-surface-container-lowest rounded-3xl p-6 shadow-md border-2 border-primary/20 flex flex-col items-center text-center relative">
+          <span className="text-xs font-bold text-secondary uppercase tracking-widest">
+            {t.tokenNumberLabel}
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="font-label-supporting text-[13px] text-on-surface font-bold leading-snug">
-              SMS और पर्ची फोन पर भेज दी गई है
-            </p>
-            <p className="font-body-md text-on-surface-variant text-[11px] mt-0.5 leading-tight">
-              Confirmation SMS &amp; digital slip dispatched to registered mobile number.
-            </p>
+          <span className="font-mono text-5xl font-black text-primary my-2 tracking-tight">
+            {appointment.tokenNumber}
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 text-xs font-bold mb-4">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            {t.statusConfirmed}
+          </span>
+
+          {/* Key Appointment Details */}
+          <div className="w-full border-t border-outline-variant/30 pt-4 flex flex-col gap-3 text-left text-xs">
+            <div className="flex justify-between items-center py-0.5">
+              <span className="text-secondary font-medium">{isHindi ? 'मरीज का नाम' : 'Patient Name'}:</span>
+              <span className="font-bold text-on-surface text-sm">{appointment.patientName}</span>
+            </div>
+
+            <div className="flex justify-between items-center py-0.5">
+              <span className="text-secondary font-medium">{t.dateHeaderLabel}:</span>
+              <span className="font-bold text-on-surface text-sm">{appointment.date}</span>
+            </div>
+
+            <div className="flex justify-between items-center py-0.5">
+              <span className="text-secondary font-medium">{t.timeHeaderLabel}:</span>
+              <span className="font-bold text-primary text-sm">{appointment.time}</span>
+            </div>
+
+            <div className="flex justify-between items-center py-0.5">
+              <span className="text-secondary font-medium">{t.facilityLabel}:</span>
+              <span className="font-bold text-on-surface text-sm">{appointment.facility}</span>
+            </div>
+
+            {appointment.doctorName && (
+              <div className="flex justify-between items-center py-0.5">
+                <span className="text-secondary font-medium">{t.doctorLabel}:</span>
+                <span className="font-bold text-on-surface text-sm">{appointment.doctorName}</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Quick Action / Share & Save Option */}
-        <div className="grid grid-cols-2 gap-stack-gap-sm pt-1">
-          <button
-            onClick={handleShare}
-            className="flex items-center justify-center gap-2 py-3 px-3 bg-surface-container-lowest hover:bg-surface-container text-primary rounded-xl shadow-xs font-label-supporting text-[13px] font-bold active:scale-95 transition-transform border border-outline-variant/30 cursor-pointer"
-            type="button"
-          >
-            <span className="material-symbols-outlined text-[20px]">share</span>
-            <span>शेयर करें (Share)</span>
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex items-center justify-center gap-2 py-3 px-3 bg-surface-container-lowest hover:bg-surface-container text-primary rounded-xl shadow-xs font-label-supporting text-[13px] font-bold active:scale-95 transition-transform border border-outline-variant/30 cursor-pointer"
-            type="button"
-          >
-            <span className="material-symbols-outlined text-[20px]">download</span>
-            <span>पर्ची सेव करें (Save)</span>
-          </button>
+        {/* Warm Simple Ending Message Box */}
+        <div className="w-full bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 text-center">
+          <p className="text-sm font-bold text-emerald-800 leading-relaxed whitespace-pre-line">
+            {isHindi
+              ? 'आपका अपॉइंटमेंट हो गया है।\nधन्यवाद। समय पर स्वास्थ्य केंद्र पहुँचें।'
+              : 'Your appointment is booked.\nThank you. Please arrive at the health centre on time.'}
+          </p>
         </div>
 
-        {/* Single Full-Width Primary Action */}
-        <div className="pt-2 flex flex-col gap-2">
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-3">
           <Link
             href="/appointments"
-            className="w-full h-14 rounded-2xl bg-primary hover:bg-primary-container text-on-primary font-label-action text-[15px] font-bold flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform"
+            className="w-full h-14 rounded-2xl bg-primary text-on-primary font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-primary/25 active:scale-98 transition-all hover:bg-primary/95 cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[22px]">calendar_month</span>
-            <span>अपॉइंटमेंट देखें / View Appointments</span>
+            <span className="material-symbols-outlined text-[20px]">calendar_month</span>
+            <span>{t.viewAppointmentsBtn}</span>
           </Link>
+
           <Link
             href="/home"
-            className="w-full h-12 rounded-2xl bg-surface-container text-on-surface font-label-action text-[14px] font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            className="w-full h-12 rounded-2xl bg-surface-container text-on-surface font-semibold text-sm flex items-center justify-center gap-2 border border-outline-variant/40 active:scale-98 transition-all hover:bg-surface-container-high cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">home</span>
-            <span>मुख्य पृष्ठ पर जाएँ / Back to Home</span>
+            <span>{t.backToHomeBtn}</span>
           </Link>
         </div>
       </div>

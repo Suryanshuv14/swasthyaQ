@@ -26,15 +26,20 @@ class AppointmentCreate(BaseModel):
     age: int = Field(ge=0, le=130)
     symptom_category: str
     symptoms: List[str] = []
-    status: Literal["waiting", "in_consultation", "done"] = "waiting"
+    appointment_date: Optional[str] = None  # e.g. "2026-09-08"
+    appointment_time: Optional[str] = None  # e.g. "10:00 AM"
+    facility_id: Optional[str] = "PHC-NORTH-01"
+    department: Optional[str] = "General Medicine"
+    doctor_name: Optional[str] = None
+    status: Literal["waiting", "in_consultation", "done", "cancelled"] = "waiting"
     waiting_since: Optional[datetime] = None
     source: Literal["ai_call", "manual", "patient_app"] = "manual"
-    facility_id: Optional[str] = "PHC-NORTH-01"
     risk_level: Literal["low", "high"] = "low"
     needs_human_callback: bool = False
+    created_at: Optional[datetime] = None
 
 class AppointmentStatusUpdate(BaseModel):
-    status: Literal["waiting", "in_consultation", "done"]
+    status: Literal["waiting", "in_consultation", "done", "cancelled"]
 
 class Appointment(BaseModel):
     id: Optional[str] = None
@@ -43,13 +48,18 @@ class Appointment(BaseModel):
     patient_name: str
     age: int
     symptom_category: str
-    symptoms: List[str]
+    symptoms: List[str] = []
+    appointment_date: Optional[str] = None
+    appointment_time: Optional[str] = None
+    facility_id: Optional[str] = "PHC-NORTH-01"
+    department: Optional[str] = "General Medicine"
+    doctor_name: Optional[str] = None
     status: str = "waiting"
     waiting_since: datetime
     source: str = "manual"
-    facility_id: Optional[str] = "PHC-NORTH-01"
     risk_level: str = "low"
     needs_human_callback: bool = False
+    created_at: Optional[datetime] = None
 
 class Medicine(BaseModel):
     name: str
@@ -129,4 +139,3 @@ class ProfileUpdate(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
-

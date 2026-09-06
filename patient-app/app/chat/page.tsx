@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { BrandLogo } from '@/components/patient/brand-logo'
 import { useListen } from '@/hooks/useListen'
+import { useLanguage } from '@/hooks/useLanguage'
 import { sendMessage, getSessionId, SendMessageResponse } from '@/lib/n8n'
 
 interface ChatMessage {
   id: string
   sender: 'ai' | 'user'
   text: string
-  textEn?: string
   timestamp: string
   triageData?: {
     symptoms?: string[]
@@ -22,22 +22,51 @@ interface ChatMessage {
 
 export default function ChatPage() {
   const router = useRouter()
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'msg-init',
-      sender: 'ai',
-      text: 'नमस्ते सुनीता जी! मैं स्वास्थय-क्यू का स्वास्थ्य सहायक हूँ। आपको क्या परेशानी हो रही है? आप लिखकर या माइक दबाकर बोल सकते हैं।',
-      textEn: 'Namaste Sunita ji! I am your SwasthyaQ Health Assistant. How are you feeling today? You can type or tap the mic to speak.',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ])
+  const { lang, t } = useLanguage()
+  const isHindi = lang === 'hi'
+
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [sessionId, setSessionId] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Web Speech recognition for voice-to-text in chat input
+  // Suggestion chips for quick patient questions
+  const suggestionQuestions = isHindi
+    ? [
+        'मुझे डॉक्टर का अपॉइंटमेंट चाहिए',
+        'मेरे सिर में तेज दर्द और बुखार है',
+        'मेरा टोकन नंबर क्या है?',
+        'डॉक्टर कितने बजे बैठेंगे?',
+      ]
+    : [
+        'I want an appointment with the doctor',
+        'I have fever and severe headache',
+        'What is my token number?',
+        'What are the doctor OPD timings?',
+      ]
+
+  // Initialize session ID once per consultation session
+  useEffect(() => {
+    const activeSessionId = getSessionId()
+    setSessionId(activeSessionId)
+  }, [])
+
+  // Initial AI greeting (Text only)
+  useEffect(() => {
+    setMessages([
+      {
+        id: 'msg-init',
+        sender: 'ai',
+        text: t.chatInitMessage,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ])
+  }, [t.chatInitMessage])
+
+  // Speech-to-text for dictating into chat input field
   const { isListening, transcript, start: startListening, stop: stopListening } = useListen({
-    lang: 'hi-IN',
+    lang: isHindi ? 'hi-IN' : 'en-IN',
     onResult: (finalTranscript) => {
       if (finalTranscript.trim()) {
         setInputText((prev) => (prev ? `${prev} ${finalTranscript}` : finalTranscript))
@@ -45,53 +74,56 @@ export default function ChatPage() {
     },
   })
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isTyping])
-
-  // If transcript changes while listening, keep input text live
+  // Live preview while dictating
   useEffect(() => {
     if (isListening && transcript) {
       setInputText(transcript)
     }
   }, [isListening, transcript])
 
-  const handleSend = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    const trimmed = inputText.trim()
-    if (!trimmed || isTyping) return
+  // Auto-scroll on new message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isTyping])
+
+  // Handle sending message
+  const handleSendMessage = async (textToSend?: string) => {
+    const messageContent = (textToSend || inputText).trim()
+    if (!messageContent || isTyping) return
 
     if (isListening) {
       stopListening()
     }
 
-    const userMsgId = 'msg-' + Date.now()
     const userMessage: ChatMessage = {
-      id: userMsgId,
+      id: 'msg-' + Date.now(),
       sender: 'user',
-      text: trimmed,
+      text: messageContent,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }
 
-    // Optimistic UI update
+    // Optimistically append user message
     setMessages((prev) => [...prev, userMessage])
     setInputText('')
     setIsTyping(true)
 
+    const activeSessionId = sessionId || getSessionId()
+
     try {
-      const sessionId = getSessionId()
+      // Send to n8n with mode: "chat" and persistent session_id
       const res: SendMessageResponse = await sendMessage({
-        message: trimmed,
+        message: messageContent,
         mode: 'chat',
-        session_id: sessionId,
+        session_id: activeSessionId,
+        patient_name: isHindi ? 'सुनीता देवी' : 'Sunita Devi',
+        abha_id: '94-8231-5612',
       })
 
-      const aiMsgId = 'msg-' + (Date.now() + 1)
       const aiMessage: ChatMessage = {
-        id: aiMsgId,
+        id: 'msg-' + (Date.now() + 1),
         sender: 'ai',
-        text: res.reply_text,
+        // In chat mode, DO NOT automatically speak response (show text only)
+        text: res.reply_text || (isHindi ? 'मैंने आपके लक्षण समझ लिए हैं।' : 'I have recorded your symptoms.'),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         triageData:
           res.symptoms && res.symptoms.length > 0
@@ -105,12 +137,11 @@ export default function ChatPage() {
 
       setMessages((prev) => [...prev, aiMessage])
     } catch (err) {
-      console.error('Failed to send message:', err)
+      console.error('Chat error:', err)
       const errorMsg: ChatMessage = {
         id: 'msg-err-' + Date.now(),
         sender: 'ai',
-        text: 'माफ़ कीजिए, सर्वर से जुड़ने में समस्या हुई। कृपया दोबारा प्रयास करें।',
-        textEn: 'Sorry, could not reach the server. Please try again.',
+        text: t.chatServerError,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }
       setMessages((prev) => [...prev, errorMsg])
@@ -119,11 +150,11 @@ export default function ChatPage() {
     }
   }
 
-  const handleBookAppointment = (msg: ChatMessage) => {
+  const handleBookFromChat = (msg: ChatMessage) => {
     if (!msg.triageData) return
     const triagePayload = {
       reply_text: msg.text,
-      symptoms: msg.triageData.symptoms || ['बुखार (Fever)', 'खांसी (Cough)'],
+      symptoms: msg.triageData.symptoms || (isHindi ? ['बुखार', 'खांसी'] : ['Fever', 'Cough']),
       symptom_category: msg.triageData.category || 'General OPD',
       urgency: msg.triageData.urgency || 'Moderate',
     }
@@ -145,14 +176,14 @@ export default function ChatPage() {
   }
 
   return (
-    <main className="flex flex-col relative w-full bg-surface min-h-screen pb-24 font-body">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 w-full z-50 bg-surface/90 backdrop-blur-xl border-b border-outline-variant/30">
-        <div className="max-w-md mx-auto h-16 px-4 flex items-center justify-between">
+    <main className="flex flex-col relative w-full bg-surface min-h-screen pb-28 font-body">
+      {/* Top Header */}
+      <header className="fixed top-0 left-0 right-0 w-full z-50 bg-surface/90 backdrop-blur-xl border-b border-outline-variant/30 pt-safe">
+        <div className="max-w-md mx-auto h-16 px-margin-screen flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href="/home"
-              aria-label="Back to home"
+              aria-label={t.backBtn}
               className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface active:scale-95 transition-transform"
             >
               <span className="material-symbols-outlined text-[22px]">arrow_back</span>
@@ -161,11 +192,11 @@ export default function ChatPage() {
               <BrandLogo size={32} className="w-8 h-8" />
               <div>
                 <h1 className="text-sm font-bold text-on-surface font-headline leading-tight">
-                  AI स्वास्थ्य सहायक (Chat)
+                  {t.chatHeader}
                 </h1>
                 <p className="text-[11px] font-medium text-emerald-600 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  ऑनलाइन • n8n Clinical AI
+                  {t.chatSubtitle}
                 </p>
               </div>
             </div>
@@ -173,51 +204,42 @@ export default function ChatPage() {
 
           <Link
             href="/consultation"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-container text-on-primary text-xs font-bold active:scale-95 shadow-xs transition-all"
           >
             <span className="material-symbols-outlined text-[16px]">call</span>
-            <span>Voice Call</span>
+            <span>{t.voiceCallSwitch}</span>
           </Link>
         </div>
       </header>
 
-      {/* Messages Container */}
-      <div className="flex-1 max-w-md w-full mx-auto px-4 pt-20 pb-4 flex flex-col gap-4">
+      {/* Messages Scroll Area */}
+      <div className="flex-1 max-w-md w-full mx-auto px-margin-screen pt-20 pb-4 flex flex-col gap-3.5">
         {messages.map((msg) => {
           const isAi = msg.sender === 'ai'
           return (
             <div key={msg.id} className={`flex flex-col ${isAi ? 'items-start' : 'items-end'}`}>
               <div
-                className={`max-w-[85%] p-4 rounded-2xl shadow-sm text-sm leading-relaxed ${
+                className={`max-w-[88%] p-4 rounded-3xl shadow-sm text-sm leading-relaxed ${
                   isAi
                     ? 'bg-surface-container-high text-on-surface rounded-tl-sm border border-outline-variant/40'
                     : 'bg-primary text-on-primary rounded-tr-sm'
                 }`}
               >
-                <p className="font-medium text-[14px]">{msg.text}</p>
-                {msg.textEn && (
-                  <p
-                    className={`mt-1.5 text-xs ${
-                      isAi ? 'text-on-surface-variant/80' : 'text-on-primary/80'
-                    }`}
-                  >
-                    {msg.textEn}
-                  </p>
-                )}
+                <p className="font-medium text-[14px] whitespace-pre-wrap">{msg.text}</p>
 
                 {/* Inline Symptoms Card & Appointment Booking Button */}
                 {msg.triageData && (
                   <div className="mt-3.5 pt-3 border-t border-outline-variant/30 flex flex-col gap-2">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
                       <span className="material-symbols-outlined text-[16px]">medical_services</span>
-                      <span>दर्ज लक्षण (Identified Symptoms)</span>
+                      <span>{t.recordedSymptoms}</span>
                     </div>
 
                     <div className="flex flex-wrap gap-1.5">
                       {msg.triageData.symptoms?.map((sym, i) => (
                         <span
                           key={i}
-                          className="px-2.5 py-1 bg-surface-container rounded-lg text-xs font-medium text-on-surface border border-outline-variant/40"
+                          className="px-2.5 py-1 bg-surface-container rounded-xl text-xs font-semibold text-on-surface border border-outline-variant/40 shadow-2xs"
                         >
                           {sym}
                         </span>
@@ -225,32 +247,46 @@ export default function ChatPage() {
                     </div>
 
                     <button
-                      onClick={() => handleBookAppointment(msg)}
-                      className="mt-2 w-full py-2.5 px-4 bg-primary text-on-primary rounded-xl font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 shadow-md shadow-primary/20 transition-all hover:bg-primary/95"
+                      onClick={() => handleBookFromChat(msg)}
+                      className="mt-2 w-full py-2.5 px-4 bg-primary text-on-primary rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 shadow-md shadow-primary/20 transition-all hover:bg-primary/95 cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[18px]">calendar_month</span>
-                      <span>अपॉइंटमेंट बुक करें (Book Appointment)</span>
+                      <span>{t.bookAppointmentFromChat}</span>
                     </button>
                   </div>
                 )}
               </div>
-              <span className="text-[10px] text-on-surface-variant/70 mt-1 px-1">
+              <span className="text-[10px] text-on-surface-variant/70 mt-1 px-1 font-mono">
                 {msg.timestamp}
               </span>
             </div>
           )
         })}
 
-        {/* Typing Indicator */}
+        {/* Typing Loading Indicator */}
         {isTyping && (
           <div className="flex items-start">
             <div className="bg-surface-container-high border border-outline-variant/40 px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" />
-              <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce [animation-delay:0.2s]" />
-              <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce [animation-delay:0.4s]" />
+              <span className="w-2 h-2 rounded-full bg-primary animate-bounce" />
+              <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0.2s]" />
+              <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0.4s]" />
             </div>
           </div>
         )}
+
+        {/* Suggestion Chips Horizontal Bar */}
+        <div className="flex flex-wrap gap-1.5 pt-2">
+          {suggestionQuestions.map((q, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSendMessage(q)}
+              className="px-3 py-1.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium border border-outline-variant/40 active:scale-95 transition-all text-left"
+              type="button"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
 
         <div ref={messagesEndRef} />
       </div>
@@ -258,15 +294,18 @@ export default function ChatPage() {
       {/* Fixed Bottom Input Bar */}
       <footer className="fixed bottom-0 left-0 right-0 w-full z-40 bg-surface/95 backdrop-blur-xl border-t border-outline-variant/30 py-3 px-4">
         <form
-          onSubmit={handleSend}
+          onSubmit={(e) => {
+            e.preventDefault()
+            handleSendMessage()
+          }}
           className="max-w-md mx-auto flex items-center gap-2 bg-surface-container-low p-1.5 rounded-2xl border border-outline-variant/50 shadow-sm"
         >
-          {/* Mic Button for Voice Typing */}
+          {/* Mic Button for Voice Dictation */}
           <button
             type="button"
             onClick={handleMicToggle}
             aria-label={isListening ? 'Stop listening' : 'Start speaking'}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               isListening
                 ? 'bg-red-500 text-white animate-pulse shadow-md shadow-red-500/30'
                 : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
@@ -277,12 +316,12 @@ export default function ChatPage() {
             </span>
           </button>
 
-          {/* Text Input */}
+          {/* Message Input Box */}
           <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={isListening ? 'सुन रहे हैं... बोलिए...' : 'लक्षण लिखें या बोलें (Type symptoms)...'}
+            placeholder={isListening ? t.chatListeningPlaceholder : t.chatPlaceholder}
             className="flex-1 bg-transparent px-2 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
           />
 
@@ -291,7 +330,7 @@ export default function ChatPage() {
             type="submit"
             disabled={!inputText.trim() || isTyping}
             aria-label="Send message"
-            className="w-11 h-11 rounded-xl bg-primary text-on-primary flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all shadow-md shadow-primary/20"
+            className="w-11 h-11 rounded-xl bg-primary text-on-primary flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all shadow-md shadow-primary/20 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">send</span>
           </button>
