@@ -141,6 +141,28 @@ export interface TranslationDictionary {
   takeMedicineBtn: string
   takenStatus: string
   
+  // Profile Settings Screen
+  profileHeader: string
+  profileSubtitle: string
+  personalDetails: string
+  nameLabel: string
+  namePlaceholder: string
+  userIdLabel: string
+  userIdPlaceholder: string
+  phoneLabel: string
+  phonePlaceholder: string
+  ageLabel: string
+  genderLabel: string
+  genderMale: string
+  genderFemale: string
+  genderOther: string
+  villageLabel: string
+  facilitySettingLabel: string
+  saveProfileBtn: string
+  profileSavedToast: string
+  bookWithProfileBtn: string
+  listenProfileText: string
+
   // Bottom Navigation
   navHome: string
   navAppointments: string
@@ -290,6 +312,28 @@ export const translations: Record<Language, TranslationDictionary> = {
     takeMedicineBtn: 'दवा ले ली',
     takenStatus: 'ले ली गई',
 
+    // Profile Settings Screen
+    profileHeader: 'प्रोफ़ाइल व सेटिंग्स',
+    profileSubtitle: 'मरीज का नाम और यूजर आईडी बदलें',
+    personalDetails: 'व्यक्तिगत विवरण',
+    nameLabel: 'मरीज का पूरा नाम',
+    namePlaceholder: 'अपना नाम दर्ज करें (उदा. राहुल शर्मा)',
+    userIdLabel: 'यूजर आईडी / आभा संख्या (ABHA ID)',
+    userIdPlaceholder: 'यूजर आईडी या आभा नंबर (उदा. PAT-78070)',
+    phoneLabel: 'मोबाइल नंबर',
+    phonePlaceholder: '+91 98765 43210',
+    ageLabel: 'आयु (वर्ष)',
+    genderLabel: 'लिंग',
+    genderMale: 'पुरुष (Male)',
+    genderFemale: 'महिला (Female)',
+    genderOther: 'अन्य (Other)',
+    villageLabel: 'गांव / क्षेत्र',
+    facilitySettingLabel: 'प्राथमिक स्वास्थ्य केंद्र',
+    saveProfileBtn: 'प्रोफ़ाइल सहेजें (Save)',
+    profileSavedToast: 'प्रोफ़ाइल सफलतापूर्वक अपडेट हो गई!',
+    bookWithProfileBtn: 'इस नाम से अपॉइंटमेंट बुक करें',
+    listenProfileText: 'प्रोफ़ाइल विवरण सुनें',
+
     // Bottom Navigation
     navHome: 'होम',
     navAppointments: 'अपॉइंटमेंट',
@@ -437,6 +481,28 @@ export const translations: Record<Language, TranslationDictionary> = {
     medicationReminderTitle: 'Medicine Reminder',
     takeMedicineBtn: 'Mark as Taken',
     takenStatus: 'Taken',
+
+    // Profile Settings Screen
+    profileHeader: 'Profile & Settings',
+    profileSubtitle: 'Manage your patient name and User ID',
+    personalDetails: 'Personal Details',
+    nameLabel: 'Patient Full Name',
+    namePlaceholder: 'Enter your name (e.g. Rahul Sharma)',
+    userIdLabel: 'User ID / ABHA ID',
+    userIdPlaceholder: 'User ID or ABHA Number (e.g. PAT-78070)',
+    phoneLabel: 'Mobile Phone',
+    phonePlaceholder: '+91 98765 43210',
+    ageLabel: 'Age (Years)',
+    genderLabel: 'Gender',
+    genderMale: 'Male',
+    genderFemale: 'Female',
+    genderOther: 'Other',
+    villageLabel: 'Village / Area',
+    facilitySettingLabel: 'Primary Health Centre',
+    saveProfileBtn: 'Save Profile Changes',
+    profileSavedToast: 'Profile saved successfully!',
+    bookWithProfileBtn: 'Book Appointment with this Profile',
+    listenProfileText: 'Listen to profile details',
 
     // Bottom Navigation
     navHome: 'Home',

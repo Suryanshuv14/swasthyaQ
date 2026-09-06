@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { BrandLogo } from '@/components/patient/brand-logo'
 import { useSpeak } from '@/hooks/useSpeak'
 import { useLanguage } from '@/hooks/useLanguage'
+import { usePatientProfile } from '@/hooks/usePatientProfile'
 
 interface TriageData {
   reply_text: string
@@ -19,6 +20,8 @@ export default function SymptomConfirmationPage() {
   const { speak, isSpeaking } = useSpeak()
   const { lang, t } = useLanguage()
   const isHindi = lang === 'hi'
+
+  const { profile, initials } = usePatientProfile()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,15 +52,15 @@ export default function SymptomConfirmationPage() {
   // Speak summary automatically on load
   useEffect(() => {
     const summaryText = isHindi
-      ? 'कृपया पुष्टि करें: क्या आपके लक्षण सही दर्ज हुए हैं?'
-      : 'Please confirm: were your symptoms recorded correctly?'
+      ? `नमस्ते ${profile.name} जी। कृपया पुष्टि करें: क्या आपके लक्षण सही दर्ज हुए हैं?`
+      : `Hello ${profile.name}. Please confirm: were your symptoms recorded correctly?`
     speak(summaryText, isHindi ? 'hi-IN' : 'en-IN')
-  }, [speak, isHindi])
+  }, [speak, isHindi, profile.name])
 
   const handleReplay = () => {
     const textToRead = isHindi
-      ? `आपके लक्षण हैं: ${triageData.symptoms.join(', ')}। पुष्टि के लिए हाँ बटन दबाएं।`
-      : `Your symptoms are: ${triageData.symptoms.join(', ')}. Tap confirm to book appointment.`
+      ? `मरीज: ${profile.name}। आपके लक्षण हैं: ${triageData.symptoms.join(', ')}। पुष्टि के लिए टोकन प्राप्त करें बटन दबाएं।`
+      : `Patient: ${profile.name}. Your symptoms are: ${triageData.symptoms.join(', ')}. Tap confirm to book appointment.`
     speak(textToRead, isHindi ? 'hi-IN' : 'en-IN')
   }
 
@@ -68,45 +71,39 @@ export default function SymptomConfirmationPage() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
     try {
-      const payload = {
-        name: isHindi ? 'सुनीता देवी' : 'Sunita Devi',
-        age: 47,
-        gender: 'Female',
-        phone: '+91 98765 43210',
-        village: 'Ramnagar',
-        symptoms: triageData.symptoms.join(', '),
-        symptom_category: triageData.symptom_category,
-        triage_urgency: triageData.urgency.includes('Urgent') ? 'high' : 'moderate',
-        facility_id: 'PHC-NORTH-01',
-        source: 'patient_app',
-      }
-
       let confirmedToken = `A-${Math.floor(100 + Math.random() * 899)}`
       let doctorName = 'Dr. Keshav Kapoor'
       let room = isHindi ? 'कमरा नं. 03 (Room #03 - OPD)' : 'Room #03 (OPD Chamber)'
       let slotTime = isHindi ? 'आज 11:30 AM' : 'Today 11:30 AM'
+      let appointmentDate = '2026-09-08'
 
       try {
-        const res = await fetch(`${apiUrl}/queue/`, {
+        const res = await fetch(`${apiUrl}/queue/book`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-API-Key': 'swasthyaq_secret_api_key_2026',
           },
           body: JSON.stringify({
-            patient_name: isHindi ? 'सुनीता देवी' : 'Sunita Devi',
-            age: 47,
+            patient_name: profile.name,
+            patient_id: profile.userId,
+            age: profile.age,
             symptom_category: triageData.symptom_category,
             symptoms: triageData.symptoms,
-            facility_id: 'PHC-NORTH-01',
+            appointment_date: appointmentDate,
+            appointment_time: '10:00 AM',
+            facility_id: profile.facilityId || 'PHC-NORTH-01',
+            department: triageData.symptom_category || 'General Medicine',
             source: 'patient_app',
-            risk_level: 'low',
+            risk_level: triageData.urgency.includes('Critical') ? 'high' : 'low',
           }),
         })
         if (res.ok) {
           const resData = await res.json()
           if (resData.token_no) confirmedToken = resData.token_no
           if (resData.doctor_name) doctorName = resData.doctor_name
+          if (resData.appointment_time) slotTime = resData.appointment_time
+          if (resData.appointment_date) appointmentDate = resData.appointment_date
         }
       } catch (backendErr) {
         console.warn('FastAPI appointment queue offline, generating local ticket token:', backendErr)
@@ -117,8 +114,9 @@ export default function SymptomConfirmationPage() {
         doctorName: doctorName,
         room: room,
         slotTime: slotTime,
-        patientName: isHindi ? 'सुनीता देवी' : 'Sunita Devi',
-        abhaId: '94-8231-5612',
+        date: appointmentDate,
+        patientName: profile.name,
+        abhaId: profile.userId,
         symptoms: triageData.symptoms,
         symptomCategory: triageData.symptom_category,
         confirmedAt: new Date().toISOString(),
@@ -160,9 +158,13 @@ export default function SymptomConfirmationPage() {
             </div>
           </div>
 
-          <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary font-bold text-xs flex items-center justify-center ring-2 ring-primary-container/20">
-            {isHindi ? 'सु' : 'SD'}
-          </div>
+          {/* Profile Initials Link */}
+          <Link
+            href="/profile"
+            className="w-8 h-8 rounded-full bg-primary-container text-on-primary font-bold text-xs flex items-center justify-center ring-2 ring-primary-container/20"
+          >
+            {initials}
+          </Link>
         </div>
       </header>
 
@@ -174,21 +176,17 @@ export default function SymptomConfirmationPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed opacity-75" />
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-tertiary-fixed" />
             </span>
-            <span className="font-label-supporting text-[12px] tracking-wide uppercase font-bold">
-              {t.confirmTitle}
+            <span className="font-label-supporting text-[12px] tracking-wide uppercase font-bold truncate">
+              {profile.name} ({profile.userId})
             </span>
           </div>
-          <div className="flex items-center gap-1.5 bg-surface-container-lowest/20 px-3 py-1 rounded-full">
-            <span
-              className="material-symbols-outlined text-[16px] text-primary-fixed"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              support_agent
-            </span>
-            <span className="font-label-supporting text-[12px] text-primary-fixed font-bold">
-              {t.onlineStatus}
-            </span>
-          </div>
+          <Link
+            href="/profile"
+            className="flex items-center gap-1 bg-surface-container-lowest/20 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white hover:bg-white/30"
+          >
+            <span className="material-symbols-outlined text-[14px]">edit</span>
+            <span>{isHindi ? 'बदलें' : 'Edit'}</span>
+          </Link>
         </div>
 
         {/* Live Audio Waveform Visualization Badge */}
@@ -225,7 +223,7 @@ export default function SymptomConfirmationPage() {
               {isHindi ? 'क्या यह विवरण सही है?' : 'Are these details correct?'}
             </h2>
             <p className="font-headline-md text-sm text-secondary font-medium mt-0.5">
-              {t.confirmSubtitle}
+              {profile.name} • {profile.userId} • {profile.age} {isHindi ? 'वर्ष' : 'yrs'}
             </p>
           </div>
 
@@ -280,7 +278,7 @@ export default function SymptomConfirmationPage() {
           <button
             onClick={handleConfirm}
             disabled={loading}
-            className="w-full h-14 rounded-2xl bg-primary text-on-primary font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-primary/25 active:scale-98 transition-all hover:bg-primary/95 disabled:opacity-50"
+            className="w-full h-14 rounded-2xl bg-primary text-on-primary font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-primary/25 active:scale-98 transition-all hover:bg-primary/95 disabled:opacity-50 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[22px]">check_circle</span>
             <span>{loading ? t.loading : t.confirmAndBookBtn}</span>
@@ -288,7 +286,7 @@ export default function SymptomConfirmationPage() {
 
           <Link
             href="/consultation"
-            className="w-full h-12 rounded-2xl bg-surface-container text-on-surface font-semibold text-sm flex items-center justify-center gap-2 border border-outline-variant/40 active:scale-98 transition-all hover:bg-surface-container-high"
+            className="w-full h-12 rounded-2xl bg-surface-container text-on-surface font-semibold text-sm flex items-center justify-center gap-2 border border-outline-variant/40 active:scale-98 transition-all hover:bg-surface-container-high cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">mic</span>
             <span>{t.editSymptomsBtn}</span>

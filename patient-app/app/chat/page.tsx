@@ -6,13 +6,15 @@ import Link from 'next/link'
 import { BrandLogo } from '@/components/patient/brand-logo'
 import { useListen } from '@/hooks/useListen'
 import { useLanguage } from '@/hooks/useLanguage'
-import { sendMessage, getSessionId, SendMessageResponse } from '@/lib/n8n'
+import { usePatientProfile } from '@/hooks/usePatientProfile'
+import { sendMessage, getSessionId, resetSessionId, SendMessageResponse } from '@/lib/n8n'
 
 interface ChatMessage {
   id: string
   sender: 'ai' | 'user'
   text: string
   timestamp: string
+  isError?: boolean
   triageData?: {
     symptoms?: string[]
     category?: string
@@ -23,12 +25,14 @@ interface ChatMessage {
 export default function ChatPage() {
   const router = useRouter()
   const { lang, t } = useLanguage()
+  const { profile } = usePatientProfile()
   const isHindi = lang === 'hi'
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [sessionId, setSessionId] = useState<string>('')
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Suggestion chips for quick patient questions
@@ -46,13 +50,13 @@ export default function ChatPage() {
         'What are the doctor OPD timings?',
       ]
 
-  // Initialize session ID once per consultation session
+  // 1. Initialize persistent session ID once when the Chat screen opens
   useEffect(() => {
     const activeSessionId = getSessionId()
     setSessionId(activeSessionId)
   }, [])
 
-  // Initial AI greeting (Text only)
+  // Initial AI greeting message
   useEffect(() => {
     setMessages([
       {
@@ -64,7 +68,7 @@ export default function ChatPage() {
     ])
   }, [t.chatInitMessage])
 
-  // Speech-to-text for dictating into chat input field
+  // Speech-to-text dictation into chat input field
   const { isListening, transcript, start: startListening, stop: stopListening } = useListen({
     lang: isHindi ? 'hi-IN' : 'en-IN',
     onResult: (finalTranscript) => {
@@ -74,56 +78,60 @@ export default function ChatPage() {
     },
   })
 
-  // Live preview while dictating
+  // Live preview while speaking
   useEffect(() => {
     if (isListening && transcript) {
       setInputText(transcript)
     }
   }, [isListening, transcript])
 
-  // Auto-scroll on new message
+  // Auto-scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isTyping])
 
-  // Handle sending message
+  // Send message to n8n AI webhook
   const handleSendMessage = async (textToSend?: string) => {
     const messageContent = (textToSend || inputText).trim()
+    // Prevent duplicate sends while request is in progress or input is empty
     if (!messageContent || isTyping) return
 
     if (isListening) {
       stopListening()
     }
 
+    const currentTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
     const userMessage: ChatMessage = {
       id: 'msg-' + Date.now(),
       sender: 'user',
       text: messageContent,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: currentTimestamp,
     }
 
-    // Optimistically append user message
+    // 1. Show patient message immediately
     setMessages((prev) => [...prev, userMessage])
     setInputText('')
+    setLastFailedMessage(null)
+    // 2. Show loading / typing state
     setIsTyping(true)
 
+    // 3. Use current persistent session_id (same across whole conversation)
     const activeSessionId = sessionId || getSessionId()
 
     try {
-      // Send to n8n with mode: "chat" and persistent session_id
+      // POST to n8n webhook with mode: "chat" and session_id only
       const res: SendMessageResponse = await sendMessage({
         message: messageContent,
         mode: 'chat',
         session_id: activeSessionId,
-        patient_name: isHindi ? 'सुनीता देवी' : 'Sunita Devi',
-        abha_id: '94-8231-5612',
       })
 
+      // 4. Append AI response
       const aiMessage: ChatMessage = {
         id: 'msg-' + (Date.now() + 1),
         sender: 'ai',
-        // In chat mode, DO NOT automatically speak response (show text only)
-        text: res.reply_text || (isHindi ? 'मैंने आपके लक्षण समझ लिए हैं।' : 'I have recorded your symptoms.'),
+        text: res.reply_text,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         triageData:
           res.symptoms && res.symptoms.length > 0
@@ -137,16 +145,27 @@ export default function ChatPage() {
 
       setMessages((prev) => [...prev, aiMessage])
     } catch (err) {
-      console.error('Chat error:', err)
+      console.error('Failed to receive response from n8n webhook:', err)
+      setLastFailedMessage(messageContent)
+      
       const errorMsg: ChatMessage = {
         id: 'msg-err-' + Date.now(),
         sender: 'ai',
-        text: t.chatServerError,
+        text: isHindi
+          ? 'माफ़ कीजिए, सर्वर से जुड़ने में समस्या हुई। कृपया नीचे दिए गए बटन से पुनः प्रयास करें।'
+          : 'Sorry, could not connect to the assistant server. Please retry using the button below.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isError: true,
       }
       setMessages((prev) => [...prev, errorMsg])
     } finally {
       setIsTyping(false)
+    }
+  }
+
+  const handleRetry = () => {
+    if (lastFailedMessage && !isTyping) {
+      handleSendMessage(lastFailedMessage)
     }
   }
 
@@ -173,6 +192,26 @@ export default function ChatPage() {
     } else {
       startListening()
     }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
+
+  const handleStartNewConversation = () => {
+    const newId = resetSessionId()
+    setSessionId(newId)
+    setMessages([
+      {
+        id: 'msg-init-' + Date.now(),
+        sender: 'ai',
+        text: t.chatInitMessage,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ])
   }
 
   return (
@@ -202,13 +241,25 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <Link
-            href="/consultation"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-container text-on-primary text-xs font-bold active:scale-95 shadow-xs transition-all"
-          >
-            <span className="material-symbols-outlined text-[16px]">call</span>
-            <span>{t.voiceCallSwitch}</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleStartNewConversation}
+              title={isHindi ? 'नई बातचीत शुरू करें' : 'Start New Chat'}
+              aria-label="New Conversation"
+              className="w-8 h-8 rounded-full bg-surface-container text-secondary flex items-center justify-center active:scale-90 transition-transform"
+              type="button"
+            >
+              <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+            </button>
+
+            <Link
+              href="/consultation"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-container text-on-primary text-xs font-bold active:scale-95 shadow-xs transition-all"
+            >
+              <span className="material-symbols-outlined text-[16px]">call</span>
+              <span>{t.voiceCallSwitch}</span>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -220,12 +271,27 @@ export default function ChatPage() {
             <div key={msg.id} className={`flex flex-col ${isAi ? 'items-start' : 'items-end'}`}>
               <div
                 className={`max-w-[88%] p-4 rounded-3xl shadow-sm text-sm leading-relaxed ${
-                  isAi
+                  msg.isError
+                    ? 'bg-error-container/40 text-on-error-container border border-error/30 rounded-tl-sm'
+                    : isAi
                     ? 'bg-surface-container-high text-on-surface rounded-tl-sm border border-outline-variant/40'
                     : 'bg-primary text-on-primary rounded-tr-sm'
                 }`}
               >
                 <p className="font-medium text-[14px] whitespace-pre-wrap">{msg.text}</p>
+
+                {/* Retry Button for network error */}
+                {msg.isError && lastFailedMessage && (
+                  <button
+                    onClick={handleRetry}
+                    disabled={isTyping}
+                    className="mt-2.5 px-3 py-1.5 rounded-xl bg-primary text-on-primary text-xs font-bold flex items-center gap-1.5 shadow-xs active:scale-95 transition-transform"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">refresh</span>
+                    <span>{isHindi ? 'पुनः प्रयास करें' : 'Retry'}</span>
+                  </button>
+                )}
 
                 {/* Inline Symptoms Card & Appointment Booking Button */}
                 {msg.triageData && (
@@ -280,7 +346,8 @@ export default function ChatPage() {
             <button
               key={idx}
               onClick={() => handleSendMessage(q)}
-              className="px-3 py-1.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium border border-outline-variant/40 active:scale-95 transition-all text-left"
+              disabled={isTyping}
+              className="px-3 py-1.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-50 text-on-surface text-xs font-medium border border-outline-variant/40 active:scale-95 transition-all text-left"
               type="button"
             >
               {q}
@@ -316,16 +383,18 @@ export default function ChatPage() {
             </span>
           </button>
 
-          {/* Message Input Box */}
+          {/* Message Input Box (Supports Enter key) */}
           <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={isListening ? t.chatListeningPlaceholder : t.chatPlaceholder}
             className="flex-1 bg-transparent px-2 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+            disabled={isTyping}
           />
 
-          {/* Send Button */}
+          {/* Proper Send Button (Disabled while typing or input is empty) */}
           <button
             type="submit"
             disabled={!inputText.trim() || isTyping}

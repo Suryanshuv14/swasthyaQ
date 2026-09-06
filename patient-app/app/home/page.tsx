@@ -8,12 +8,15 @@ import { BottomNav } from '@/components/patient/bottom-nav'
 import { AudioFeedbackToast } from '@/components/patient/audio-feedback-toast'
 import { useSpeak } from '@/hooks/useSpeak'
 import { useLanguage } from '@/hooks/useLanguage'
+import { usePatientProfile } from '@/hooks/usePatientProfile'
 
 export default function PatientHomePage() {
   const router = useRouter()
   const { speak } = useSpeak()
   const { lang, t } = useLanguage()
   const isHindi = lang === 'hi'
+
+  const { profile, initials } = usePatientProfile()
 
   const [toastVisible, setToastVisible] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
@@ -43,52 +46,59 @@ export default function PatientHomePage() {
 
   const handleReadHomeScreen = () => {
     const text = isHindi
-      ? 'स्वास्थय-क्यू होम स्क्रीन। आप दो मुख्य तरीकों से सहायता ले सकते हैं: स्वास्थय-क्यू से बोलकर बात करें, या चैट करें। नीचे दिए गए विकल्पों से नया अपॉइंटमेंट बुक करें या अपना टोकन जांचें।'
-      : 'SwasthyaQ Home screen. You can get assistance in two primary ways: Talk to SwasthyaQ by voice, or Chat with SwasthyaQ. You can also use quick suggestions below to book an appointment or check your token.'
+      ? `नमस्ते ${profile.name}। स्वास्थय-क्यू होम स्क्रीन। आप बोलकर या चैट करके अपॉइंटमेंट बुक कर सकते हैं।`
+      : `Hello ${profile.name}. SwasthyaQ Home screen. You can book an appointment by voice or chat.`
     playAudio(text)
   }
 
   return (
     <main className="flex flex-col relative w-full bg-surface min-h-screen pt-20 pb-24 font-body">
-      {/* Top Header with Language Switcher */}
+      {/* Top Header with Language Switcher and Profile */}
       <TopHeader />
 
       {/* Audio Feedback Toast */}
       <AudioFeedbackToast visible={toastVisible} message={toastMessage} />
 
       <div className="flex flex-col w-full max-w-md mx-auto px-margin-screen space-y-4 pb-6">
-        {/* Top Greeting & Speaker Card */}
+        {/* Top Greeting & Profile Banner */}
         <div className="w-full bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3 border border-outline-variant/30">
-          <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href="/profile"
+            className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-90 active:scale-[0.99] transition-all cursor-pointer"
+          >
             <div className="relative shrink-0">
-              <div className="w-12 h-12 rounded-full bg-primary-container text-on-primary font-black text-lg flex items-center justify-center shadow-xs">
-                {isHindi ? 'सु' : 'SD'}
+              <div className="w-12 h-12 rounded-full bg-primary-container text-on-primary font-black text-sm flex items-center justify-center shadow-xs">
+                {initials}
               </div>
               <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-tertiary shadow-sm flex items-center justify-center ring-2 ring-surface">
                 <span
                   className="material-symbols-outlined text-on-tertiary text-[9px] font-black"
                   style={{ fontVariationSettings: "'FILL' 1" }}
                 >
-                  check
+                  edit
                 </span>
               </div>
             </div>
 
             <div className="flex flex-col min-w-0">
               <span className="font-headline-md text-base text-on-surface truncate font-bold">
-                {t.patientGreeting}
+                {isHindi ? `नमस्ते, ${profile.name}` : `Hello, ${profile.name}`}
               </span>
-              <span className="text-xs text-secondary font-medium truncate">
-                {t.location}
-              </span>
+              <div className="flex items-center gap-1.5 text-xs text-secondary font-medium truncate">
+                <span className="truncate">{profile.village || t.location}</span>
+                <span>•</span>
+                <span className="font-mono text-[10px] bg-surface-container px-1.5 py-0.5 rounded font-bold text-on-surface">
+                  {profile.userId}
+                </span>
+              </div>
             </div>
-          </div>
+          </Link>
 
           {/* Prominent Speaker Button for Screen Narration */}
           <button
             onClick={handleReadHomeScreen}
             aria-label={t.listenScreenText}
-            className="shrink-0 w-11 h-11 rounded-full bg-tertiary-container hover:bg-tertiary-container/80 text-on-tertiary flex items-center justify-center active:scale-90 transition-transform shadow-xs border border-tertiary/20"
+            className="shrink-0 w-11 h-11 rounded-full bg-tertiary-container hover:bg-tertiary-container/80 text-on-tertiary flex items-center justify-center active:scale-90 transition-transform shadow-xs border border-tertiary/20 cursor-pointer"
             type="button"
           >
             <span
@@ -109,7 +119,6 @@ export default function PatientHomePage() {
             className="w-full bg-primary-container text-on-primary rounded-3xl p-5 shadow-md flex items-center gap-4 text-left active:scale-[0.98] transition-all duration-200 border-2 border-primary/40 relative overflow-hidden group cursor-pointer"
             type="button"
           >
-            {/* Background ripple highlight */}
             <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 pointer-events-none group-hover:scale-110 transition-transform" />
 
             <div className="w-16 h-16 rounded-2xl bg-white text-primary flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
@@ -220,7 +229,23 @@ export default function PatientHomePage() {
               <span className="material-symbols-outlined text-secondary text-lg">chevron_right</span>
             </Link>
 
-            {/* Suggestion 3: Where is my token? */}
+            {/* Suggestion 3: Edit Profile Settings */}
+            <Link
+              href="/profile"
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.98] transition-all border border-outline-variant/30"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <span className="material-symbols-outlined text-xl">account_circle</span>
+                </span>
+                <span className="font-headline-sm text-sm font-bold text-on-surface">
+                  {t.profileHeader}
+                </span>
+              </div>
+              <span className="material-symbols-outlined text-secondary text-lg">chevron_right</span>
+            </Link>
+
+            {/* Suggestion 4: Where is my token? */}
             <Link
               href="/appointments"
               className="flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.98] transition-all border border-outline-variant/30"
@@ -231,22 +256,6 @@ export default function PatientHomePage() {
                 </span>
                 <span className="font-headline-sm text-sm font-bold text-on-surface">
                   {t.suggestWhereToken}
-                </span>
-              </div>
-              <span className="material-symbols-outlined text-secondary text-lg">chevron_right</span>
-            </Link>
-
-            {/* Suggestion 4: Talk to a healthcare assistant */}
-            <Link
-              href="/consultation"
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.98] transition-all border border-outline-variant/30"
-            >
-              <div className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-xl">support_agent</span>
-                </span>
-                <span className="font-headline-sm text-sm font-bold text-on-surface">
-                  {t.suggestTalkAssistant}
                 </span>
               </div>
               <span className="material-symbols-outlined text-secondary text-lg">chevron_right</span>

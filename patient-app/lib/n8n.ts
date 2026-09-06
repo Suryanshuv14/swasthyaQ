@@ -1,16 +1,27 @@
 /**
- * n8n AI Consultation & Voice Webhook Client
+ * n8n AI Consultation Webhook Client
  *
- * Single shared messaging layer for BOTH Voice Consultation and Text Chat.
- * Communicates with n8n AI Agent via NEXT_PUBLIC_N8N_CHAT_WEBHOOK_URL / NEXT_PUBLIC_N8N_VOICE_WEBHOOK_URL.
+ * Production Webhook URL: https://n8n.resizemyphoto.me/webhook/swasthyaq-intake
+ *
+ * The ONLY request body fields sent to n8n are:
+ * {
+ *   "message": "<patient message>",
+ *   "mode": "chat",
+ *   "session_id": "<current conversation session id>"
+ * }
+ *
+ * Response Format:
+ * {
+ *   "response": "<AI response>"
+ * }
  */
+
+export const PRODUCTION_N8N_WEBHOOK_URL = 'https://n8n.resizemyphoto.me/webhook/swasthyaq-intake'
 
 export interface SendMessageParams {
   message: string
   mode: 'chat' | 'voice'
   session_id: string
-  patient_name?: string
-  abha_id?: string
 }
 
 export interface SendMessageResponse {
@@ -22,7 +33,8 @@ export interface SendMessageResponse {
 }
 
 /**
- * Retrieves the current consultation session ID or generates a persistent UUID.
+ * Retrieves the current conversation session ID or generates a unique UUID.
+ * Keeps the same session ID for every message in the current conversation.
  */
 export function getSessionId(): string {
   if (typeof window === 'undefined') {
@@ -41,7 +53,7 @@ export function getSessionId(): string {
 }
 
 /**
- * Resets the session ID for a new consultation.
+ * Generates and stores a new unique session ID when starting a completely new conversation.
  */
 export function resetSessionId(): string {
   if (typeof window !== 'undefined') {
@@ -51,94 +63,63 @@ export function resetSessionId(): string {
 }
 
 /**
- * Main unified message dispatch function for Chat and Voice.
+ * Sends patient message to n8n production webhook.
+ * Only sends: message, mode, session_id.
  */
 export async function sendMessage({
   message,
   mode,
   session_id,
-  patient_name = 'सुनीता देवी',
-  abha_id = '94-8231-5612',
 }: SendMessageParams): Promise<SendMessageResponse> {
   const webhookUrl =
     process.env.NEXT_PUBLIC_N8N_CHAT_WEBHOOK_URL ||
-    process.env.NEXT_PUBLIC_N8N_VOICE_WEBHOOK_URL ||
-    'http://localhost:5678/webhook/patient-voice-triage'
+    PRODUCTION_N8N_WEBHOOK_URL
 
-  if (webhookUrl && webhookUrl.startsWith('http')) {
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 12000)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 20000)
 
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message,
-          mode,
-          session_id,
-          patient_name,
-          abha_id,
-          source: 'patient_app',
-        }),
-        signal: controller.signal,
-      })
+  try {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message,
+        mode,
+        session_id,
+      }),
+      signal: controller.signal,
+    })
 
-      clearTimeout(timeoutId)
+    clearTimeout(timeoutId)
 
-      if (response.ok) {
-        const data = await response.json()
-        return {
-          reply_text: data.reply_text || data.reply || 'मैंने आपके लक्षण समझ लिए हैं।',
-          symptoms: data.symptoms,
-          symptom_category: data.symptom_category || data.category,
-          urgency: data.urgency,
-          risk_level: data.risk_level || 'low',
-        }
-      }
-    } catch (err) {
-      console.warn('n8n webhook call timed out or failed, utilizing local clinical NLP engine:', err)
+    if (!response.ok) {
+      throw new Error(`n8n webhook responded with status ${response.status}`)
     }
-  }
 
-  // Clinical NLP Fallback heuristics for local dev / offline testing
-  const lower = (message || '').toLowerCase()
-  let symptoms: string[] = ['बुखार (Fever)', 'सूखी खांसी (Dry Cough)']
-  let category = 'General OPD / श्वसन संक्रमण (Respiratory)'
-  let urgency = 'Moderate (मध्यम)'
-  let reply = 'मैंने आपके लक्षण समझ लिए हैं: बुखार और खांसी। कृपया विवरण की पुष्टि करके अपॉइंटमेंट बुक करें।'
+    const data = await response.json()
+    
+    // n8n response format: { "response": "<AI response>" }
+    const replyText =
+      data.response ||
+      data.reply_text ||
+      data.reply ||
+      data.output ||
+      data.message ||
+      (typeof data === 'string' ? data : 'मैंने आपका संदेश प्राप्त कर लिया है।')
 
-  if (lower.includes('नमस्ते') || lower.includes('hello') || lower.includes('hi') || lower.includes('शुरू')) {
     return {
-      reply_text: 'नमस्ते! मैं स्वास्थय-क्यू का स्वास्थ्य सहायक हूँ। आपको क्या तकलीफ़ या लक्षण महसूस हो रहे हैं?',
-      symptoms: undefined,
-      symptom_category: undefined,
-      urgency: undefined,
+      reply_text: replyText,
+      symptoms: data.symptoms,
+      symptom_category: data.symptom_category || data.category,
+      urgency: data.urgency,
+      risk_level: data.risk_level || 'low',
     }
-  }
-
-  if (lower.includes('सिर') || lower.includes('head') || lower.includes('pain') || lower.includes('दर्द')) {
-    symptoms = ['तेज सिरदर्द (Severe Headache)', 'कमजोरी और चक्कर (Fatigue)']
-    category = 'General Medicine / सामान्य चिकित्सा'
-    urgency = 'Standard (सामान्य)'
-    reply = 'आपके सिरदर्द और कमजोरी के लक्षण दर्ज कर लिए गए हैं। चलिए डॉक्टर परामर्श का अपॉइंटमेंट बुक करते हैं।'
-  } else if (lower.includes('पेट') || lower.includes('stomach') || lower.includes('vomit') || lower.includes('दस्त') || lower.includes('उल्टी')) {
-    symptoms = ['पेट दर्द (Abdominal Pain)', 'उल्टी / मिचली (Nausea)']
-    category = 'Gastroenterology / पाचन तंत्र'
-    urgency = 'Urgent (उच्च प्राथमिकता)'
-    reply = 'पेट से जुड़ी समस्या दर्ज कर ली गई है। आपको जल्द डॉक्टर परामर्श की आवश्यकता है।'
-  } else if (lower.includes('छाती') || lower.includes('chest') || lower.includes('breath') || lower.includes('सांस')) {
-    symptoms = ['सांस लेने में तकलीफ (Shortness of Breath)', 'छाती में भारीपन (Chest Heaviness)']
-    category = 'Cardiorespiratory / आपातकालीन'
-    urgency = 'Critical (अति-आवश्यक)'
-    reply = 'आपातकालीन लक्षण पाए गए हैं। तुरंत डॉक्टर परामर्श व नजदीकी स्वास्थ्य केंद्र से संपर्क करें।'
-  }
-
-  return {
-    reply_text: reply,
-    symptoms,
-    symptom_category: category,
-    urgency,
-    risk_level: urgency.includes('Critical') ? 'high' : 'low',
+  } catch (err: any) {
+    clearTimeout(timeoutId)
+    console.error('Error communicating with n8n webhook:', err)
+    throw err
   }
 }
+

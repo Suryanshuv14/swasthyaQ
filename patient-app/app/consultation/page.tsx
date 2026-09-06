@@ -7,12 +7,14 @@ import { BrandLogo } from '@/components/patient/brand-logo'
 import { useListen } from '@/hooks/useListen'
 import { useSpeak } from '@/hooks/useSpeak'
 import { useLanguage } from '@/hooks/useLanguage'
+import { usePatientProfile } from '@/hooks/usePatientProfile'
 import { sendMessage, getSessionId, resetSessionId, SendMessageResponse } from '@/lib/n8n'
 
 export default function VoiceConsultationPage() {
   const router = useRouter()
   const { speak, isSpeaking, stop: stopSpeaking } = useSpeak()
   const { lang, t } = useLanguage()
+  const { profile } = usePatientProfile()
   const isHindi = lang === 'hi'
 
   // Consultation call status
@@ -92,8 +94,6 @@ export default function VoiceConsultationPage() {
         message: spokenText,
         mode: 'voice',
         session_id: activeSessionId,
-        patient_name: isHindi ? 'सुनीता देवी' : 'Sunita Devi',
-        abha_id: '94-8231-5612',
       })
 
       const reply = response.reply_text || (isHindi ? 'मैंने आपकी बात समझ ली है।' : 'I have understood your message.')
