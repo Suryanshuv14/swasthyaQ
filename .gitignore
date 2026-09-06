@@ -55,3 +55,4 @@ Thumbs.db
 
 # Misc
 .env.example.local
+backend/nohup.out
