@@ -164,9 +164,7 @@ export function DoctorQueueView({
               }}
               onClick={() => onOpenPatient(nextPatient)}
             >
-              <md-icon style={{ fontSize: '20px', display: 'flex', alignItems: 'center' }}>
-                person_add_alt_1
-              </md-icon>
+              <md-icon style={{ fontSize: '20px' }}>person_add</md-icon>
               <span style={{ display: 'inline-block' }}>Call Next Patient ({nextPatient.token})</span>
             </button>
           </div>

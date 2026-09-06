@@ -69,9 +69,7 @@ export function DashboardTopbar({
                   transition: 'transform 0.4s ease',
                   transform: isRefreshing ? 'rotate(360deg)' : 'none',
                 }}
-              >
-                refresh
-              </md-icon>
+              >refresh</md-icon>
               <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
             </button>
           )}
