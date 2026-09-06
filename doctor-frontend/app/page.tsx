@@ -78,22 +78,7 @@ export default function RoleSelectionPage() {
               Select your role to access your dedicated clinical or administration portal.
             </p>
 
-            <div className="role-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-              <div
-                className="role-card"
-                onClick={() => router.push('/language-select')}
-                style={{ borderColor: '#00475e' }}
-              >
-                <div className="role-icon-box" style={{ background: '#c0e8ff', color: '#00475e' }}>
-                  <md-icon>record_voice_over</md-icon>
-                </div>
-                <h3>Patient (नागरिक)</h3>
-                <p>Voice-assisted consultations, digital queue tokens, prescriptions, and health reminders.</p>
-                <span className="role-badge-tag" style={{ background: '#d5e3fc', color: '#00475e' }}>
-                  Voice Tele-Clinic
-                </span>
-              </div>
-
+            <div className="role-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
               <div
                 className="role-card"
                 onClick={() => handleSelectRole('doctor')}

@@ -18,8 +18,8 @@ const fontPublicSans = Public_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'SwasthyaQ | Rural Health by Voice',
-  description: 'Public health delivery platform by voice, appointments, prescriptions and clinic queue tracking.',
+  title: 'SwasthyaQ | Clinical & Administration Portal',
+  description: 'Public healthcare staff dashboard for Doctors, Health Workers, and District Administrators.',
 }
 
 export const viewport: Viewport = {
