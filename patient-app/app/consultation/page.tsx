@@ -7,7 +7,7 @@ import { BrandLogo } from '@/components/patient/brand-logo'
 import { useListen } from '@/hooks/useListen'
 import { useSpeak } from '@/hooks/useSpeak'
 
-import { sendVoiceTranscriptToN8N, VoiceTriageResult } from '@/lib/n8n'
+import { sendMessage, getSessionId, SendMessageResponse } from '@/lib/n8n'
 
 export default function VoiceConsultationPage() {
   const router = useRouter()
@@ -74,14 +74,17 @@ export default function VoiceConsultationPage() {
     setIsProcessing(true)
     setErrorMessage(null)
 
-    const triageResult = await sendVoiceTranscriptToN8N({
-      transcript: spokenText,
+    const sessionId = getSessionId()
+    const triageResult: SendMessageResponse = await sendMessage({
+      message: spokenText,
+      mode: 'voice',
+      session_id: sessionId,
       patient_name: 'सुनीता देवी',
       abha_id: '94-8231-5612',
     })
 
     // Update AI reply
-    setAiMessage(triageResult.reply)
+    setAiMessage(triageResult.reply_text)
     setAiMessageEn('Understood symptoms. Let us proceed to confirmation.')
     setIsProcessing(false)
 
@@ -90,10 +93,10 @@ export default function VoiceConsultationPage() {
       sessionStorage.setItem(
         'swasthyaq_triage_data',
         JSON.stringify({
-          reply_text: triageResult.reply,
-          symptoms: triageResult.symptoms,
-          symptom_category: triageResult.category,
-          urgency: triageResult.urgency,
+          reply_text: triageResult.reply_text,
+          symptoms: triageResult.symptoms || ['बुखार (Fever)', 'खांसी (Cough)'],
+          symptom_category: triageResult.symptom_category || 'General OPD',
+          urgency: triageResult.urgency || 'Moderate',
         })
       )
       sessionStorage.setItem('swasthyaq_last_transcript', spokenText)
@@ -101,7 +104,7 @@ export default function VoiceConsultationPage() {
 
     // Speak AI response
     if (isSpeakerOn) {
-      speak(triageResult.reply, 'hi-IN')
+      speak(triageResult.reply_text, 'hi-IN')
     }
 
     // Navigate to confirmation page after AI speaks

@@ -128,6 +128,15 @@ export default function PatientHomePage() {
             </span>
             <span>आवाज़ से बताएं • No typing needed</span>
           </div>
+
+          {/* Secondary Entry Point: Chat with Assistant */}
+          <Link
+            href="/chat"
+            className="mt-3.5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-primary text-xs font-semibold border border-outline-variant/40 active:scale-95 transition-all shadow-xs"
+          >
+            <span className="material-symbols-outlined text-[16px]">chat</span>
+            <span>सहायक से चैट करें • Chat with Assistant</span>
+          </Link>
         </div>
 
         {/* Secondary Actions Section (3 Large Equal-Width Touch Tiles) */}
