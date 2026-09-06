@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useLanguage } from '@/hooks/useLanguage'
+import { usePatientNotifications } from '@/hooks/usePatientNotifications'
 
 export type PatientTab = 'home' | 'appointments' | 'medicines' | 'notifications'
 
@@ -12,19 +13,19 @@ interface NavItem {
   href: string
   icon: string
   labelKey: 'navHome' | 'navAppointments' | 'navMedicines' | 'navNotifications'
-  badge?: number | boolean
 }
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', href: '/home', icon: 'home', labelKey: 'navHome' },
   { id: 'appointments', href: '/appointments', icon: 'calendar_today', labelKey: 'navAppointments' },
   { id: 'medicines', href: '/medicines', icon: 'medication', labelKey: 'navMedicines' },
-  { id: 'notifications', href: '/notifications', icon: 'notifications', labelKey: 'navNotifications', badge: 2 },
+  { id: 'notifications', href: '/notifications', icon: 'notifications', labelKey: 'navNotifications' },
 ]
 
 export function BottomNav() {
   const pathname = usePathname()
   const { t } = useLanguage()
+  const { unreadCount } = usePatientNotifications()
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-xl border-t border-outline-variant/30 shadow-[0_-2px_12px_rgba(0,0,0,0.04)] pb-safe">
@@ -57,9 +58,9 @@ export function BottomNav() {
                 >
                   {item.icon}
                 </span>
-                {item.badge && (
+                {item.id === 'notifications' && unreadCount > 0 && (
                   <span className="absolute -top-1 -right-0.5 w-4 h-4 rounded-full bg-error text-on-error text-[10px] font-bold flex items-center justify-center shadow-xs">
-                    {typeof item.badge === 'number' ? item.badge : ''}
+                    {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </div>

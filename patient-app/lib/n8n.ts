@@ -3,11 +3,19 @@
  *
  * Production Webhook URL: https://n8n.resizemyphoto.me/webhook/swasthyaq-intake
  *
- * The ONLY request body fields sent to n8n are:
+ * Request Body:
  * {
  *   "message": "<patient message>",
- *   "mode": "chat",
- *   "session_id": "<current conversation session id>"
+ *   "mode": "chat" | "voice",
+ *   "session_id": "<new session id>",
+ *   "patient": {
+ *     "first_name": "<current profile first name>",
+ *     "last_name": "<current profile last name>",
+ *     "age": <current profile age>,
+ *     "gender": "<current profile gender>",
+ *     "mobile": "<current profile mobile>",
+ *     "village": "<current profile village>"
+ *   }
  * }
  *
  * Response Format:
@@ -16,12 +24,15 @@
  * }
  */
 
+import { getPatientProfile, extractPatientPayload, PatientPayload } from './patientProfile'
+
 export const PRODUCTION_N8N_WEBHOOK_URL = 'https://n8n.resizemyphoto.me/webhook/swasthyaq-intake'
 
 export interface SendMessageParams {
   message: string
   mode: 'chat' | 'voice'
   session_id: string
+  patient?: PatientPayload
 }
 
 export interface SendMessageResponse {
@@ -30,6 +41,16 @@ export interface SendMessageResponse {
   symptom_category?: string
   urgency?: string
   risk_level?: 'low' | 'high'
+}
+
+/**
+ * Creates a brand new unique session ID (UUID).
+ */
+export function createUniqueSessionId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return 'sess_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now()
 }
 
 /**
@@ -42,11 +63,7 @@ export function getSessionId(): string {
   }
   let sessionId = sessionStorage.getItem('swasthyaq_consultation_session_id')
   if (!sessionId) {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      sessionId = crypto.randomUUID()
-    } else {
-      sessionId = 'sess_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now()
-    }
+    sessionId = createUniqueSessionId()
     sessionStorage.setItem('swasthyaq_consultation_session_id', sessionId)
   }
   return sessionId
@@ -56,24 +73,28 @@ export function getSessionId(): string {
  * Generates and stores a new unique session ID when starting a completely new conversation.
  */
 export function resetSessionId(): string {
+  const newId = createUniqueSessionId()
   if (typeof window !== 'undefined') {
-    sessionStorage.removeItem('swasthyaq_consultation_session_id')
+    sessionStorage.setItem('swasthyaq_consultation_session_id', newId)
   }
-  return getSessionId()
+  return newId
 }
 
 /**
- * Sends patient message to n8n production webhook.
- * Only sends: message, mode, session_id.
+ * Sends patient message and profile to n8n production webhook.
+ * Payload fields: message, mode, session_id, patient
  */
 export async function sendMessage({
   message,
   mode,
   session_id,
+  patient,
 }: SendMessageParams): Promise<SendMessageResponse> {
   const webhookUrl =
     process.env.NEXT_PUBLIC_N8N_CHAT_WEBHOOK_URL ||
     PRODUCTION_N8N_WEBHOOK_URL
+
+  const patientData = patient || extractPatientPayload(getPatientProfile())
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 20000)
@@ -88,6 +109,7 @@ export async function sendMessage({
         message,
         mode,
         session_id,
+        patient: patientData,
       }),
       signal: controller.signal,
     })

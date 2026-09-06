@@ -388,7 +388,7 @@ async def generate_token_no(facility_id: str) -> str:
 
 @router.get("/")
 async def get_queue(current_user: dict = Depends(require_role("doctor", "health_worker", "district_admin"))):
-    query = {"status": "waiting"}
+    query = {"status": {"$in": ["waiting", "in_consultation"]}}
     if current_user.get("facility_id"):
         query["facility_id"] = current_user["facility_id"]
     cursor = appointments_collection.find(query).sort("waiting_since", 1)

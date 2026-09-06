@@ -180,7 +180,7 @@ export default function MedicinesPage() {
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xs font-bold text-on-surface">
-                      {prescription.doctor_name || 'Dr. Ananya Kapoor'}
+                      {prescription.doctor_name || 'Dr. Keshav Kapoor'}
                     </span>
                     <span className="text-[10px] text-secondary font-medium">
                       {new Date(prescription.created_at || Date.now()).toLocaleDateString('en-IN', {

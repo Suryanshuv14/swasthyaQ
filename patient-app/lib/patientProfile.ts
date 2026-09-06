@@ -14,6 +14,30 @@ export interface PatientProfile {
   facilityId: string
 }
 
+export interface PatientPayload {
+  first_name: string
+  last_name: string
+  age: number
+  gender: string
+  mobile: string
+  village: string
+}
+
+export function extractPatientPayload(profile: PatientProfile): PatientPayload {
+  const nameTrimmed = (profile.name || '').trim()
+  const parts = nameTrimmed ? nameTrimmed.split(/\s+/) : []
+  const firstName = parts[0] || nameTrimmed || 'Patient'
+  const lastName = parts.length > 1 ? parts.slice(1).join(' ') : ''
+  return {
+    first_name: firstName,
+    last_name: lastName,
+    age: Number(profile.age) || 47,
+    gender: profile.gender || 'Female',
+    mobile: profile.phone || '+91 98765 43210',
+    village: profile.village || 'Ramnagar',
+  }
+}
+
 export const DEFAULT_PATIENT_PROFILE: PatientProfile = {
   name: 'सुनीता देवी',
   userId: '94-8231-5612',

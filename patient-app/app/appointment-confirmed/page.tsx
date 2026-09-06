@@ -8,15 +8,8 @@ import { useSpeak } from '@/hooks/useSpeak'
 import { useLanguage } from '@/hooks/useLanguage'
 import { AudioFeedbackToast } from '@/components/patient/audio-feedback-toast'
 
-interface ConfirmedAppointment {
-  tokenNumber: string
-  doctorName: string
-  facility: string
-  date: string
-  time: string
-  patientName: string
-  status: string
-}
+import { usePatientAppointment } from '@/hooks/usePatientAppointment'
+import { AppointmentRecord } from '@/lib/appointmentStore'
 
 export default function AppointmentConfirmedPage() {
   const router = useRouter()
@@ -24,38 +17,20 @@ export default function AppointmentConfirmedPage() {
   const { lang, t } = useLanguage()
   const isHindi = lang === 'hi'
 
+  const { activeAppointment } = usePatientAppointment()
+
   const [toastVisible, setToastVisible] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
 
-  const [appointment, setAppointment] = useState<ConfirmedAppointment>({
-    tokenNumber: '#A104',
-    doctorName: 'Dr. Ananya Kapoor',
-    facility: 'PHC North',
+  const appointment = activeAppointment || {
+    tokenNumber: '#A-101',
+    doctorName: 'Dr. Keshav Kapoor',
+    facility: 'PHC-NORTH-01',
     date: '8 September 2026',
-    time: '10:30 AM',
-    patientName: isHindi ? 'सुनीता देवी' : 'Sunita Devi',
-    status: 'Confirmed',
-  })
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = sessionStorage.getItem('swasthyaq_confirmed_appointment')
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored)
-          setAppointment((prev) => ({
-            ...prev,
-            tokenNumber: parsed.tokenNumber.startsWith('#') ? parsed.tokenNumber : `#${parsed.tokenNumber}`,
-            doctorName: parsed.doctorName || prev.doctorName,
-            facility: parsed.facility || prev.facility,
-            date: parsed.date || prev.date,
-            time: parsed.time || parsed.slotTime || prev.time,
-            patientName: parsed.patientName || prev.patientName,
-          }))
-        } catch (e) {}
-      }
-    }
-  }, [])
+    time: '11:00 AM',
+    patientName: isHindi ? 'मरीज' : 'Patient',
+    status: 'Confirmed' as const,
+  }
 
   // Auto speak warm confirmation on mount
   useEffect(() => {

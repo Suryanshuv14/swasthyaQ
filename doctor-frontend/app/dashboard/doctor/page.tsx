@@ -230,13 +230,21 @@ export default function DoctorDashboardPage() {
     }
   }
 
-  function handleNavChange(tab: DoctorNav) {
+  async function handleNavChange(tab: DoctorNav) {
+    if (authToken && selectedPatient && selectedPatient.id && !sent) {
+      try {
+        await updateAppointmentStatus(authToken, selectedPatient.id, 'waiting')
+      } catch (e) {
+        console.error(e)
+      }
+    }
     setActiveNav(tab)
     setSelectedPatient(null)
-    if (tab === 'Queue' && authToken) loadPatientQueue(authToken)
-    else if (tab === 'Patient Records' && authToken) loadPatientDirectoryData(authToken)
-    else if (tab === 'Prescriptions' && authToken) loadPrescriptionsData(authToken)
-    else if (tab === 'Referrals' && authToken) loadReferralsData(authToken)
+    setSent(false)
+    if (tab === 'Queue' && authToken) await loadPatientQueue(authToken)
+    else if (tab === 'Patient Records' && authToken) await loadPatientDirectoryData(authToken)
+    else if (tab === 'Prescriptions' && authToken) await loadPrescriptionsData(authToken)
+    else if (tab === 'Referrals' && authToken) await loadReferralsData(authToken)
   }
 
   async function handleGlobalRefresh() {
@@ -287,6 +295,37 @@ export default function DoctorDashboardPage() {
       } catch (e) {
         console.error(e)
       }
+    }
+  }
+
+  async function handleBackToQueue() {
+    if (authToken && selectedPatient && selectedPatient.id && !sent) {
+      try {
+        await updateAppointmentStatus(authToken, selectedPatient.id, 'waiting')
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    setSelectedPatient(null)
+    setSent(false)
+    if (authToken) {
+      await loadPatientQueue(authToken)
+    }
+  }
+
+  async function handleCompleteConsultationOnly() {
+    if (!authToken || !selectedPatient || !selectedPatient.id) return
+    setActionLoading(true)
+    try {
+      await updateAppointmentStatus(authToken, selectedPatient.id, 'done')
+      setSelectedPatient(null)
+      setSent(false)
+      await loadPatientQueue(authToken)
+      await loadPatientDirectoryData(authToken)
+    } catch (e: any) {
+      alert(e.message || 'Error completing consultation')
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -534,7 +573,8 @@ export default function DoctorDashboardPage() {
                 loading={actionLoading}
                 onUpdateMedicines={setMedicines}
                 onUpdateNotes={setNotes}
-                onBackToQueue={() => setSelectedPatient(null)}
+                onBackToQueue={handleBackToQueue}
+                onCompleteConsultation={handleCompleteConsultationOnly}
                 onAssignFollowup={() => {
                   setModalTargetPatient(selectedPatient)
                   setFollowupModalOpen(true)
@@ -547,6 +587,7 @@ export default function DoctorDashboardPage() {
                 onDone={() => {
                   setSelectedPatient(null)
                   setSent(false)
+                  if (authToken) loadPatientQueue(authToken)
                 }}
               />
             ) : (

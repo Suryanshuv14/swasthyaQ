@@ -7,7 +7,10 @@ import { BrandLogo } from '@/components/patient/brand-logo'
 import { useListen } from '@/hooks/useListen'
 import { useLanguage } from '@/hooks/useLanguage'
 import { usePatientProfile } from '@/hooks/usePatientProfile'
-import { sendMessage, getSessionId, resetSessionId, SendMessageResponse } from '@/lib/n8n'
+import { ChatMarkdown } from '@/components/patient/chat-markdown'
+import { sendMessage, resetSessionId, SendMessageResponse } from '@/lib/n8n'
+import { extractPatientPayload } from '@/lib/patientProfile'
+import { parseAppointmentFromAiText, saveAppointment } from '@/lib/appointmentStore'
 
 interface ChatMessage {
   id: string
@@ -50,10 +53,10 @@ export default function ChatPage() {
         'What are the doctor OPD timings?',
       ]
 
-  // 1. Initialize persistent session ID once when the Chat screen opens
+  // 1. Initialize a brand new unique session ID whenever starting a new Chat conversation
   useEffect(() => {
-    const activeSessionId = getSessionId()
-    setSessionId(activeSessionId)
+    const newSessionId = resetSessionId()
+    setSessionId(newSessionId)
   }, [])
 
   // Initial AI greeting message
@@ -117,14 +120,15 @@ export default function ChatPage() {
     setIsTyping(true)
 
     // 3. Use current persistent session_id (same across whole conversation)
-    const activeSessionId = sessionId || getSessionId()
+    const activeSessionId = sessionId || resetSessionId()
 
     try {
-      // POST to n8n webhook with mode: "chat" and session_id only
+      // POST to n8n webhook with message, mode, session_id, and patient profile
       const res: SendMessageResponse = await sendMessage({
         message: messageContent,
         mode: 'chat',
         session_id: activeSessionId,
+        patient: extractPatientPayload(profile),
       })
 
       // 4. Append AI response
@@ -141,6 +145,16 @@ export default function ChatPage() {
                 urgency: res.urgency,
               }
             : undefined,
+      }
+
+      // 4. Automatically parse and sync confirmed appointments into shared store
+      const parsedAppointment = parseAppointmentFromAiText(res.reply_text, profile.name)
+      if (parsedAppointment) {
+        saveAppointment({
+          ...parsedAppointment,
+          patientName: profile.name,
+          patientId: profile.userId,
+        })
       }
 
       setMessages((prev) => [...prev, aiMessage])
@@ -278,7 +292,11 @@ export default function ChatPage() {
                     : 'bg-primary text-on-primary rounded-tr-sm'
                 }`}
               >
-                <p className="font-medium text-[14px] whitespace-pre-wrap">{msg.text}</p>
+                {isAi && !msg.isError ? (
+                  <ChatMarkdown content={msg.text} />
+                ) : (
+                  <p className="font-medium text-[14px] whitespace-pre-wrap">{msg.text}</p>
+                )}
 
                 {/* Retry Button for network error */}
                 {msg.isError && lastFailedMessage && (

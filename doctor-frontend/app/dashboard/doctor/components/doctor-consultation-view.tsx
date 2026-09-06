@@ -32,6 +32,7 @@ interface DoctorConsultationViewProps {
   onUpdateMedicines: React.Dispatch<React.SetStateAction<Medicine[]>>
   onUpdateNotes: (notes: string) => void
   onBackToQueue: () => void
+  onCompleteConsultation?: () => Promise<void> | void
   onAssignFollowup: () => void
   onAssignReferral: () => void
   onSendPharmacy: () => Promise<void>
@@ -49,6 +50,7 @@ export function DoctorConsultationView({
   onUpdateMedicines,
   onUpdateNotes,
   onBackToQueue,
+  onCompleteConsultation,
   onAssignFollowup,
   onAssignReferral,
   onSendPharmacy,
@@ -75,7 +77,11 @@ export function DoctorConsultationView({
       <ConsultationStep
         patient={patient}
         prescriptionRecords={prescriptionRecords}
+        notes={notes}
+        loading={loading}
+        onUpdateNotes={onUpdateNotes}
         onBack={onBackToQueue}
+        onCompleteConsultation={onCompleteConsultation}
         onPrescription={() => setSubView('prescription')}
         onFollowup={onAssignFollowup}
         onReferral={onAssignReferral}
@@ -120,14 +126,22 @@ export function DoctorConsultationView({
 function ConsultationStep({
   patient,
   prescriptionRecords,
+  notes,
+  loading,
+  onUpdateNotes,
   onBack,
+  onCompleteConsultation,
   onPrescription,
   onFollowup,
   onReferral,
 }: {
   patient: Patient
   prescriptionRecords: PrescriptionRecord[]
+  notes: string
+  loading?: boolean
+  onUpdateNotes?: (s: string) => void
   onBack: () => void
+  onCompleteConsultation?: () => Promise<void> | void
   onPrescription: () => void
   onFollowup: () => void
   onReferral: () => void
@@ -141,11 +155,30 @@ function ConsultationStep({
   }, [prescriptionRecords, patient])
 
   return (
-    <div className="flow-wrap" style={{ padding: '16px 36px' }}>
-      <button className="back-button" onClick={onBack} style={{ fontWeight: 500, marginBottom: 12 }}>
-        <md-icon>arrow_back</md-icon> Return to Queue
-      </button>
-      <div className="flow-grid" style={{ marginTop: 0, gap: 20 }}>
+    <div className="flow-wrap" style={{ maxWidth: 1320, margin: '0 auto', padding: '12px 32px 48px', boxSizing: 'border-box' }}>
+      <div style={{ marginBottom: 12 }}>
+        <button
+          type="button"
+          className="back-button"
+          onClick={onBack}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#2563eb',
+            padding: '4px 0',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          <md-icon style={{ fontSize: 18 }}>arrow_back</md-icon> Return to Queue
+        </button>
+      </div>
+
+      <div className="flow-grid" style={{ marginTop: 0, gap: 24 }}>
         {/* LEFT COLUMN: PATIENT INFO & HISTORY */}
         <div>
           <div className="flow-title">
@@ -320,6 +353,8 @@ function ConsultationStep({
                 border: '1px solid #cbd5e1',
                 resize: 'vertical',
               }}
+              value={notes}
+              onChange={(e) => onUpdateNotes && onUpdateNotes(e.target.value)}
             />
           </div>
 
@@ -331,6 +366,22 @@ function ConsultationStep({
             >
               Write Digital Prescriptions <md-icon>arrow_forward</md-icon>
             </button>
+            {onCompleteConsultation && (
+              <button
+                className="outline-button wide"
+                style={{
+                  fontWeight: 500,
+                  color: '#15803d',
+                  borderColor: '#bbf7d0',
+                  padding: '8px 12px',
+                  fontSize: 12,
+                }}
+                onClick={onCompleteConsultation}
+                disabled={loading}
+              >
+                <md-icon style={{ color: '#15803d' }}>check_circle</md-icon> {loading ? 'Saving...' : 'Save Notes & Complete'}
+              </button>
+            )}
             <button
               className="outline-button wide"
               style={{ fontWeight: 500, padding: '8px 12px', fontSize: 12 }}
@@ -383,10 +434,28 @@ function PrescriptionStep({
   onGenerate: () => void
 }) {
   return (
-    <div className="flow-wrap">
-      <button className="back-button" onClick={onBack} style={{ fontWeight: 600 }}>
-        <md-icon>arrow_back</md-icon> Back to Consultation
-      </button>
+    <div className="flow-wrap" style={{ maxWidth: 1320, margin: '0 auto', padding: '12px 32px 48px', boxSizing: 'border-box' }}>
+      <div style={{ marginBottom: 12 }}>
+        <button
+          type="button"
+          className="back-button"
+          onClick={onBack}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#2563eb',
+            padding: '4px 0',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          <md-icon style={{ fontSize: 18 }}>arrow_back</md-icon> Back to Consultation
+        </button>
+      </div>
       <div className="prescription-card">
         <h2 style={{ fontSize: 22, fontWeight: 700 }}>Digital Prescription Builder</h2>
         <p style={{ margin: '4px 0 20px', color: '#64748b' }}>
@@ -552,7 +621,7 @@ function PreviewStep({
   }, [])
 
   return (
-    <div className="flow-wrap">
+    <div className="flow-wrap" style={{ maxWidth: 1320, margin: '0 auto', padding: '12px 32px 48px', boxSizing: 'border-box' }}>
       <div
         className="no-print"
         style={{
@@ -562,8 +631,25 @@ function PreviewStep({
           marginBottom: 14,
         }}
       >
-        <button className="back-button" onClick={onBack} style={{ fontWeight: 500, margin: 0 }}>
-          <md-icon>arrow_back</md-icon> Edit Prescription
+        <button
+          type="button"
+          className="back-button"
+          onClick={onBack}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#2563eb',
+            padding: '4px 0',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            margin: 0,
+          }}
+        >
+          <md-icon style={{ fontSize: 18 }}>arrow_back</md-icon> Edit Prescription
         </button>
         <button
           type="button"

@@ -9,15 +9,8 @@ import { AudioFeedbackToast } from '@/components/patient/audio-feedback-toast'
 import { useSpeak } from '@/hooks/useSpeak'
 import { useLanguage } from '@/hooks/useLanguage'
 
-interface AppointmentRecord {
-  id: string
-  tokenNumber: string
-  doctorName?: string
-  date: string
-  time: string
-  facility: string
-  status: 'Waiting' | 'Confirmed' | 'Completed' | 'Cancelled'
-}
+import { usePatientAppointment } from '@/hooks/usePatientAppointment'
+import { AppointmentRecord } from '@/lib/appointmentStore'
 
 export default function AppointmentsPage() {
   const router = useRouter()
@@ -25,62 +18,12 @@ export default function AppointmentsPage() {
   const { lang, t } = useLanguage()
   const isHindi = lang === 'hi'
 
+  const { activeAppointment, allAppointments } = usePatientAppointment()
+
   const [toastVisible, setToastVisible] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  const [appointments, setAppointments] = useState<AppointmentRecord[]>([
-    {
-      id: 'apt-default-1',
-      tokenNumber: '#A104',
-      doctorName: 'Dr. Ananya Kapoor',
-      date: '8 September 2026',
-      time: '10:30 AM',
-      facility: 'PHC North',
-      status: 'Confirmed',
-    },
-  ])
-
-  useEffect(() => {
-    // Check if session has a recently booked appointment
-    if (typeof window !== 'undefined') {
-      const stored = sessionStorage.getItem('swasthyaq_confirmed_appointment')
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored)
-          const newAppt: AppointmentRecord = {
-            id: 'apt-' + Date.now(),
-            tokenNumber: parsed.tokenNumber.startsWith('#') ? parsed.tokenNumber : `#${parsed.tokenNumber}`,
-            doctorName: parsed.doctorName || 'Dr. Ananya Kapoor',
-            date: parsed.date || '8 September 2026',
-            time: parsed.time || parsed.slotTime || '10:30 AM',
-            facility: parsed.facility || 'PHC North',
-            status: 'Confirmed',
-          }
-          setAppointments([newAppt])
-        } catch (e) {}
-      }
-
-      // Also attempt to fetch real queue appointments from backend API
-      const fetchBackendAppts = async () => {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-        try {
-          const res = await fetch(`${apiUrl}/queue/availability?date=2026-09-08&facility_id=PHC-NORTH-01`)
-          if (res.ok) {
-            const data = await res.json()
-            if (data && data.doctor_name) {
-              setAppointments((prev) =>
-                prev.map((a) => ({ ...a, doctorName: data.doctor_name, facility: data.facility_id || a.facility }))
-              )
-            }
-          }
-        } catch (err) {
-          // Fallback to active appointment
-        }
-      }
-      fetchBackendAppts()
-    }
-  }, [])
+  const currentAppointment = activeAppointment
 
   const handleReadAppointment = (apt: AppointmentRecord) => {
     const text = isHindi
@@ -121,8 +64,6 @@ export default function AppointmentsPage() {
         return 'bg-primary/10 text-primary border-primary/20'
     }
   }
-
-  const currentAppointment = appointments[0]
 
   return (
     <main className="flex flex-col relative w-full pt-20 pb-24 bg-surface min-h-screen font-body">

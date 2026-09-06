@@ -8,7 +8,9 @@ import { useListen } from '@/hooks/useListen'
 import { useSpeak } from '@/hooks/useSpeak'
 import { useLanguage } from '@/hooks/useLanguage'
 import { usePatientProfile } from '@/hooks/usePatientProfile'
-import { sendMessage, getSessionId, resetSessionId, SendMessageResponse } from '@/lib/n8n'
+import { sendMessage, resetSessionId, SendMessageResponse } from '@/lib/n8n'
+import { extractPatientPayload } from '@/lib/patientProfile'
+import { parseAppointmentFromAiText, saveAppointment } from '@/lib/appointmentStore'
 
 export default function VoiceConsultationPage() {
   const router = useRouter()
@@ -29,10 +31,10 @@ export default function VoiceConsultationPage() {
   const [patientMessage, setPatientMessage] = useState('')
   const [hasConfirmedAppointment, setHasConfirmedAppointment] = useState(false)
 
-  // Initialize session ID on mount and persist throughout the conversation
+  // Initialize a fresh unique session ID on mount for this voice consultation
   useEffect(() => {
-    const activeSessionId = getSessionId()
-    setSessionId(activeSessionId)
+    const newSessionId = resetSessionId()
+    setSessionId(newSessionId)
   }, [])
 
   // Initial AI greeting
@@ -87,13 +89,14 @@ export default function VoiceConsultationPage() {
     setPatientMessage(spokenText)
     setIsProcessing(true)
 
-    const activeSessionId = sessionId || getSessionId()
+    const activeSessionId = sessionId || resetSessionId()
 
     try {
       const response: SendMessageResponse = await sendMessage({
         message: spokenText,
         mode: 'voice',
         session_id: activeSessionId,
+        patient: extractPatientPayload(profile),
       })
 
       const reply = response.reply_text || (isHindi ? 'मैंने आपकी बात समझ ली है।' : 'I have understood your message.')
@@ -115,17 +118,27 @@ export default function VoiceConsultationPage() {
         }
       }
 
-      // Check if AI response indicates booking confirmation
-      const lowerReply = reply.toLowerCase()
-      if (
-        lowerReply.includes('टोकन') ||
-        lowerReply.includes('token') ||
-        lowerReply.includes('कन्फर्म') ||
-        lowerReply.includes('booked') ||
-        lowerReply.includes('appointment confirmed') ||
-        lowerReply.includes('हो गया')
-      ) {
+      // Check if AI response indicates booking confirmation and sync to store
+      const parsedAppointment = parseAppointmentFromAiText(reply, profile.name)
+      if (parsedAppointment) {
+        saveAppointment({
+          ...parsedAppointment,
+          patientName: profile.name,
+          patientId: profile.userId,
+        })
         setHasConfirmedAppointment(true)
+      } else {
+        const lowerReply = reply.toLowerCase()
+        if (
+          lowerReply.includes('टोकन') ||
+          lowerReply.includes('token') ||
+          lowerReply.includes('कन्फर्म') ||
+          lowerReply.includes('booked') ||
+          lowerReply.includes('appointment confirmed') ||
+          lowerReply.includes('हो गया')
+        ) {
+          setHasConfirmedAppointment(true)
+        }
       }
 
       // Automatically speak AI response using TTS (Voice Mode requirement)

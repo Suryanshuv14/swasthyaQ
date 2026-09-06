@@ -7,6 +7,7 @@ import { BrandLogo } from '@/components/patient/brand-logo'
 import { useSpeak } from '@/hooks/useSpeak'
 import { useLanguage } from '@/hooks/useLanguage'
 import { usePatientProfile } from '@/hooks/usePatientProfile'
+import { saveAppointment } from '@/lib/appointmentStore'
 
 interface TriageData {
   reply_text: string
@@ -109,21 +110,21 @@ export default function SymptomConfirmationPage() {
         console.warn('FastAPI appointment queue offline, generating local ticket token:', backendErr)
       }
 
-      const confirmedData = {
+      const confirmedRecord = saveAppointment({
         tokenNumber: confirmedToken,
         doctorName: doctorName,
-        room: room,
-        slotTime: slotTime,
+        time: slotTime,
         date: appointmentDate,
+        facility: profile.facilityId || 'PHC-NORTH-01',
         patientName: profile.name,
-        abhaId: profile.userId,
+        patientId: profile.userId,
+        status: 'Waiting',
         symptoms: triageData.symptoms,
-        symptomCategory: triageData.symptom_category,
-        confirmedAt: new Date().toISOString(),
-      }
+        department: triageData.symptom_category,
+      })
 
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem('swasthyaq_confirmed_appointment', JSON.stringify(confirmedData))
+        sessionStorage.setItem('swasthyaq_confirmed_appointment', JSON.stringify(confirmedRecord))
       }
 
       router.push('/appointment-confirmed')

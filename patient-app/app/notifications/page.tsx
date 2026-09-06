@@ -7,63 +7,20 @@ import { AudioFeedbackToast } from '@/components/patient/audio-feedback-toast'
 import { useSpeak } from '@/hooks/useSpeak'
 import { useLanguage } from '@/hooks/useLanguage'
 
-interface NotificationItem {
-  id: string
-  type: 'appointment_confirmed' | 'appointment_reminder' | 'token_update' | 'prescription_available' | 'health_announcement'
-  timeAgoHi: string
-  timeAgoEn: string
-  titleHi: string
-  titleEn: string
-  bodyHi: string
-  bodyEn: string
-  isRead: boolean
-}
+import { usePatientNotifications } from '@/hooks/usePatientNotifications'
+import { PatientNotification } from '@/lib/notificationStore'
 
 export default function NotificationsPage() {
   const { speak } = useSpeak()
   const { lang, t } = useLanguage()
   const isHindi = lang === 'hi'
 
+  const { notifications, unreadCount, markAllRead } = usePatientNotifications()
+
   const [toastVisible, setToastVisible] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: 'notif-1',
-      type: 'appointment_confirmed',
-      timeAgoHi: '10 मिनट पहले',
-      timeAgoEn: '10m ago',
-      titleHi: 'अपॉइंटमेंट कन्फर्मेशन',
-      titleEn: 'Appointment Confirmation',
-      bodyHi: 'आपका टोकन #A104 सफलतापूर्वक जारी किया गया है। समय: 10:30 AM।',
-      bodyEn: 'Your token #A104 has been generated successfully. Time: 10:30 AM.',
-      isRead: false,
-    },
-    {
-      id: 'notif-2',
-      type: 'token_update',
-      timeAgoHi: '25 मिनट पहले',
-      timeAgoEn: '25m ago',
-      titleHi: 'कतार अपडेट (Queue Update)',
-      titleEn: 'Token & Queue Update',
-      bodyHi: 'ओपीडी कक्ष संख्या 03 में डॉ. अनन्या कपूर द्वारा परामर्श शुरू हो गया है।',
-      bodyEn: 'OPD Chamber #03 consultation has commenced by Dr. Ananya Kapoor.',
-      isRead: false,
-    },
-    {
-      id: 'notif-3',
-      type: 'health_announcement',
-      timeAgoHi: 'आज सुबह',
-      timeAgoEn: 'Today morning',
-      titleHi: 'स्वास्थ्य केंद्र संदेश',
-      titleEn: 'Health Centre Message',
-      bodyHi: 'कल रामनगर प्राथमिक स्वास्थ्य केंद्र में निःशुल्क स्वास्थ्य व टीकाकरण शिविर आयोजित होगा।',
-      bodyEn: 'Free vaccination and health checkup camp tomorrow at Ramnagar PHC.',
-      isRead: true,
-    },
-  ])
-
-  const handlePlayAudio = (n: NotificationItem) => {
+  const handlePlayAudio = (n: PatientNotification) => {
     const text = isHindi ? `${n.titleHi}: ${n.bodyHi}` : `${n.titleEn}: ${n.bodyEn}`
     setToastMsg(text)
     setToastVisible(true)
@@ -72,6 +29,14 @@ export default function NotificationsPage() {
   }
 
   const handleListenAll = () => {
+    if (notifications.length === 0) {
+      const emptyText = isHindi ? 'कोई नई सूचना नहीं है।' : 'No new notifications.'
+      setToastMsg(emptyText)
+      setToastVisible(true)
+      speak(emptyText, isHindi ? 'hi-IN' : 'en-IN')
+      setTimeout(() => setToastVisible(false), 3000)
+      return
+    }
     const allText = notifications
       .map((n) => (isHindi ? `${n.titleHi}: ${n.bodyHi}` : `${n.titleEn}: ${n.bodyEn}`))
       .join('. ')
@@ -81,11 +46,7 @@ export default function NotificationsPage() {
     setTimeout(() => setToastVisible(false), 5000)
   }
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
-  }
-
-  const getIconForType = (type: NotificationItem['type']) => {
+  const getIconForType = (type: PatientNotification['type']) => {
     switch (type) {
       case 'appointment_confirmed':
         return 'check_circle'
@@ -101,8 +62,6 @@ export default function NotificationsPage() {
         return 'notifications'
     }
   }
-
-  const unreadCount = notifications.filter((n) => !n.isRead).length
 
   return (
     <main className="flex flex-col relative w-full pt-20 pb-24 bg-surface min-h-screen font-body">
@@ -149,53 +108,69 @@ export default function NotificationsPage() {
         </div>
 
         {/* Notifications List */}
-        <div className="flex flex-col gap-3">
-          {notifications.map((n) => (
-            <div
-              key={n.id}
-              className={`w-full rounded-3xl p-5 shadow-sm border transition-all flex flex-col gap-2.5 ${
-                n.isRead
-                  ? 'bg-surface-container-lowest border-outline-variant/30'
-                  : 'bg-surface-container-lowest border-primary/40 ring-1 ring-primary/20'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-9 h-9 rounded-2xl flex items-center justify-center ${
-                      n.isRead ? 'bg-surface-container text-secondary' : 'bg-primary/10 text-primary'
-                    }`}
+        {notifications.length === 0 ? (
+          <div className="w-full bg-surface-container-lowest rounded-3xl p-8 text-center border border-outline-variant/30 flex flex-col items-center shadow-sm">
+            <div className="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center text-secondary mb-3">
+              <span className="material-symbols-outlined text-3xl">notifications_off</span>
+            </div>
+            <h2 className="font-headline-md text-base font-bold text-on-surface">
+              {isHindi ? 'कोई नई सूचना नहीं है' : 'No notifications yet'}
+            </h2>
+            <p className="text-xs text-secondary font-medium mt-1 max-w-xs leading-relaxed">
+              {isHindi
+                ? 'अपॉइंटमेंट बुकिंग व कतार से संबंधित संदेश यहाँ दिखाई देंगे।'
+                : 'Appointment booking confirmations and token updates will appear here.'}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {notifications.map((n) => (
+              <div
+                key={n.id}
+                className={`w-full rounded-3xl p-5 shadow-sm border transition-all flex flex-col gap-2.5 ${
+                  n.isRead
+                    ? 'bg-surface-container-lowest border-outline-variant/30'
+                    : 'bg-surface-container-lowest border-primary/40 ring-1 ring-primary/20'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`w-9 h-9 rounded-2xl flex items-center justify-center ${
+                        n.isRead ? 'bg-surface-container text-secondary' : 'bg-primary/10 text-primary'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-xl">
+                        {getIconForType(n.type)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-sm text-on-surface">
+                        {isHindi ? n.titleHi : n.titleEn}
+                      </span>
+                      <span className="text-[10px] text-secondary font-medium">
+                        {isHindi ? n.timeAgoHi : n.timeAgoEn}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handlePlayAudio(n)}
+                    aria-label="Listen notification"
+                    className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary active:scale-90"
+                    type="button"
                   >
-                    <span className="material-symbols-outlined text-xl">
-                      {getIconForType(n.type)}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-sm text-on-surface">
-                      {isHindi ? n.titleHi : n.titleEn}
-                    </span>
-                    <span className="text-[10px] text-secondary font-medium">
-                      {isHindi ? n.timeAgoHi : n.timeAgoEn}
-                    </span>
-                  </div>
+                    <span className="material-symbols-outlined text-[18px]">volume_up</span>
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => handlePlayAudio(n)}
-                  aria-label="Listen notification"
-                  className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary active:scale-90"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[18px]">volume_up</span>
-                </button>
+                <p className="text-xs text-on-surface-variant font-medium leading-relaxed pl-1">
+                  {isHindi ? n.bodyHi : n.bodyEn}
+                </p>
               </div>
-
-              <p className="text-xs text-on-surface-variant font-medium leading-relaxed pl-1">
-                {isHindi ? n.bodyHi : n.bodyEn}
-              </p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Bottom Navigation */}

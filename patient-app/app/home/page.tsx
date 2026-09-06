@@ -9,6 +9,7 @@ import { AudioFeedbackToast } from '@/components/patient/audio-feedback-toast'
 import { useSpeak } from '@/hooks/useSpeak'
 import { useLanguage } from '@/hooks/useLanguage'
 import { usePatientProfile } from '@/hooks/usePatientProfile'
+import { usePatientAppointment } from '@/hooks/usePatientAppointment'
 
 export default function PatientHomePage() {
   const router = useRouter()
@@ -17,6 +18,7 @@ export default function PatientHomePage() {
   const isHindi = lang === 'hi'
 
   const { profile, initials } = usePatientProfile()
+  const { activeAppointment } = usePatientAppointment()
 
   const [toastVisible, setToastVisible] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
@@ -109,6 +111,30 @@ export default function PatientHomePage() {
             </span>
           </button>
         </div>
+
+        {/* Dynamic Active Appointment Banner (if booked) */}
+        {activeAppointment && (
+          <Link
+            href="/appointments"
+            className="w-full bg-surface-container-lowest rounded-2xl p-4 shadow-sm border-2 border-primary/30 flex items-center justify-between gap-3 active:scale-[0.99] transition-all hover:bg-surface-container"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-primary text-on-primary font-mono font-black text-xs flex items-center justify-center shadow-xs shrink-0">
+                {activeAppointment.tokenNumber}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="font-headline-sm text-xs font-bold text-on-surface flex items-center gap-1.5 truncate">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  {isHindi ? 'सक्रिय टोकन' : 'Active Token'}: {activeAppointment.tokenNumber}
+                </span>
+                <span className="text-[11px] text-secondary font-medium truncate mt-0.5">
+                  {activeAppointment.date} • {activeAppointment.time} • {activeAppointment.doctorName}
+                </span>
+              </div>
+            </div>
+            <span className="material-symbols-outlined text-primary text-lg shrink-0">chevron_right</span>
+          </Link>
+        )}
 
         {/* PRIMARY ACTIONS: 2 LARGE CARDS (VOICE & CHAT) */}
         <div className="grid grid-cols-1 gap-3.5">
