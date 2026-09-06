@@ -1,0 +1,57 @@
+# Environment files - NEVER commit these
+.env
+.env.local
+.env*.local
+**/.env
+**/.env.local
+
+# Node
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+**/out/
+dist/
+**/dist/
+build/
+**/build/
+*.tsbuildinfo
+**/*.tsbuildinfo
+pnpm-lock.yaml
+**/pnpm-lock.yaml
+
+# Portable node runtimes
+**/node-v*
+
+# Python (backend/)
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/venv/
+backend/.venv/
+backend/*.egg-info/
+.venv/
+__pycache__/
+*.pyc
+
+# Capacitor (patient-app/)
+patient-app/android/
+patient-app/ios/
+patient-app/.capacitor/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.antigravity/
+
+# Misc
+.env.example.local

@@ -1,0 +1,140 @@
+/* Material Web typescale utility classes (.md-typescale-*) */
+@import '@material/web/typography/md-typescale-styles.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Material 3 baseline color schemes.
+ * Token values are the M3 baseline scheme (source color #6750A4) from
+ * Material Theme Builder / m3.material.io. Light scheme on :root,
+ * dark scheme on .dark.
+ */
+:root {
+  color-scheme: light;
+
+  --md-sys-color-primary: #22658a;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #c5e7fb;
+  --md-sys-color-on-primary-container: #064568;
+  --md-sys-color-secondary: #625b71;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #e8def8;
+  --md-sys-color-on-secondary-container: #1d192b;
+  --md-sys-color-tertiary: #7d5260;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #ffd8e4;
+  --md-sys-color-on-tertiary-container: #31111d;
+  --md-sys-color-error: #b3261e;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #f9dedc;
+  --md-sys-color-on-error-container: #410e0b;
+  --md-sys-color-background: #f4f7fb;
+  --md-sys-color-on-background: #1e293b;
+  --md-sys-color-surface: #f4f7fb;
+  --md-sys-color-on-surface: #1e293b;
+  --md-sys-color-surface-variant: #e2e8f0;
+  --md-sys-color-on-surface-variant: #64748b;
+  --md-sys-color-outline: #cbd5e1;
+  --md-sys-color-outline-variant: #cbd5e1;
+  --md-sys-color-shadow: rgba(15, 23, 42, 0.08);
+  --md-sys-color-scrim: #000000;
+  --md-sys-color-inverse-surface: #1e293b;
+  --md-sys-color-inverse-on-surface: #f8fafc;
+  --md-sys-color-inverse-primary: #38bdf8;
+  --md-sys-color-surface-dim: #e2e8f0;
+  --md-sys-color-surface-bright: #f4f7fb;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #f0f5fa;
+  --md-sys-color-surface-container: #e8f0f8;
+  --md-sys-color-surface-container-high: #e0ebf5;
+  --md-sys-color-surface-container-highest: #d8e4f2;
+
+  /* Typefaces: applied to every system and component token */
+  --md-ref-typeface-brand: var(--font-sans), 'IBM Plex Sans', system-ui, sans-serif;
+  --md-ref-typeface-plain: var(--font-sans), 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --md-sys-color-primary: #9dcef0;
+  --md-sys-color-on-primary: #00344f;
+  --md-sys-color-primary-container: #064568;
+  --md-sys-color-on-primary-container: #c5e7fb;
+  --md-sys-color-secondary: #ccc2dc;
+  --md-sys-color-on-secondary: #332d41;
+  --md-sys-color-secondary-container: #4a4458;
+  --md-sys-color-on-secondary-container: #e8def8;
+  --md-sys-color-tertiary: #efb8c8;
+  --md-sys-color-on-tertiary: #492532;
+  --md-sys-color-tertiary-container: #633b48;
+  --md-sys-color-on-tertiary-container: #ffd8e4;
+  --md-sys-color-error: #f2b8b5;
+  --md-sys-color-on-error: #601410;
+  --md-sys-color-error-container: #8c1d18;
+  --md-sys-color-on-error-container: #f9dedc;
+  --md-sys-color-background: #141218;
+  --md-sys-color-on-background: #e6e0e9;
+  --md-sys-color-surface: #141218;
+  --md-sys-color-on-surface: #e6e0e9;
+  --md-sys-color-surface-variant: #49454f;
+  --md-sys-color-on-surface-variant: #cac4d0;
+  --md-sys-color-outline: #938f99;
+  --md-sys-color-outline-variant: #49454f;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+  --md-sys-color-inverse-surface: #e6e0e9;
+  --md-sys-color-inverse-on-surface: #322f35;
+  --md-sys-color-inverse-primary: #6750a4;
+  --md-sys-color-surface-dim: #141218;
+  --md-sys-color-surface-bright: #3b383e;
+  --md-sys-color-surface-container-lowest: #0f0d13;
+  --md-sys-color-surface-container-low: #1d1b20;
+  --md-sys-color-surface-container: #211f26;
+  --md-sys-color-surface-container-high: #2b2930;
+  --md-sys-color-surface-container-highest: #36343b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  scrollbar-gutter: stable;
+}
+
+body {
+  background: var(--md-sys-color-background);
+  color: var(--md-sys-color-on-background);
+  font-family: var(--md-ref-typeface-plain);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Material Symbols icon font for <md-icon> */
+md-icon {
+  font-family: 'Material Symbols Outlined';
+}
+
+/* Global Custom Modern Slim Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
