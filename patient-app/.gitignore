@@ -12,7 +12,7 @@ build/
 node-v*
 
 # Capacitor native project artifacts
-android/
+
 ios/
 .capacitor/
 

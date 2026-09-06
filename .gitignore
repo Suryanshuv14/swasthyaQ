@@ -36,7 +36,7 @@ __pycache__/
 *.pyc
 
 # Capacitor (patient-app/)
-patient-app/android/
+
 patient-app/ios/
 patient-app/.capacitor/
 
